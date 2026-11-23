@@ -22,3 +22,13 @@ editing the barrel is ineffective because regeneration restores it.
 
 **How to apply:** Address the naming/output configuration or contract shape at
 the generator's source, never by hand-editing generated files.
+
+Generate the standalone npm lockfile outside the pnpm-installed directory.
+
+**Why:** npm's lock-only operation inspected existing pnpm symlinks and recorded
+external workspace paths instead of the registry dependency tree. A passing pnpm
+build therefore did not establish that a fresh VPS `npm ci` could work.
+
+**How to apply:** Use the isolated lock-generation command after dependency
+changes, reject external/link entries, and test clean npm packaging when release
+dependencies change. Keep pnpm and standalone npm overrides aligned.

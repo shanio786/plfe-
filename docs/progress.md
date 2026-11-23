@@ -34,6 +34,9 @@
   match was reviewed as a false positive; the privacy scan reported no findings.
 - Added the operator-only maintenance environment and Compose profile, and
   updated deployment commands to build the migration image before use.
+- Fixed workspace-linked npm lock entries and added isolated lock generation.
+  A clean source copy with no pnpm modules passed `npm ci`, `npm run build`,
+  `npm start` and database health checks. The final dependency scan remained clear.
 
 ## Half-done
 

@@ -19,6 +19,7 @@ claim that the system has been deployed to a VPS.
 | Medium | App/worker inherited migration and database-owner credentials through the whole host environment file. | Compose now passes an explicit runtime allowlist. A one-shot maintenance profile receives operator credentials. Direct npm operations use a separate, operator-owned `.env.maintenance`, which app/worker do not load and must not be able to read. |
 | Medium | Concurrent edits could record stale audit before-images. | Mutable record services lock rows before reading snapshots. Identity writers use consistent Owner-guard/row-lock ordering. Profile writes now use a service; attachment deletion and image references coordinate their locks. |
 | Medium | A maintenance image could otherwise remain stale on later deploys. | `deploy.sh` and setup instructions build with the maintenance profile before running migrations. |
+| Medium | The npm lock contained development-workspace symlinks rather than a complete standalone dependency tree. | Added isolated npm lock generation and rejected external/link entries. A clean copy passed `npm ci`, production build and `npm start` with database health 200. |
 
 No changes to Accounts or any later module were made. Existing business data
 was not re-seeded, erased or migrated.
@@ -48,6 +49,10 @@ Scanner results are point-in-time evidence, not a guarantee against future issue
 ## Verification performed
 
 - Production `npm run build`, Prisma client generation and TypeScript checks passed.
+- A separate clean source copy with no pnpm modules passed `npm ci`,
+  `npm run build`, and `npm start`; its health endpoint returned 200. Generated
+  verification files were removed afterward. The dependency scan of the final,
+  complete standalone lock also reported zero findings.
 - **23 automated checks passed** in the isolated `_test` database, including new
   approval-bypass, delegated-account ceiling, concurrent-audit and environment
   allowlist regressions, plus real XLSX output.

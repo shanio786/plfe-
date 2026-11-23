@@ -72,6 +72,12 @@ committed SQL files, applied with `prisma migrate deploy`, never `db push`.
 After every migration, reapply the runtime grants. Do not give the app role
 database ownership, schema creation, DDL, or superuser rights.
 
+When dependencies are changed from the pnpm development workspace, update its
+lockfile normally, then run `npm --prefix artifacts/plfe run lock:standalone`.
+This resolves the app's npm lock in an empty temporary directory, preventing
+pnpm symlinks from becoming invalid external references in the VPS/Docker lock.
+Do not regenerate that lock against the workspace's existing `node_modules`.
+
 For direct systemd deployment, set `EnvironmentFile=/absolute/path/.env`,
 `WorkingDirectory=/absolute/path/to/repository`, `ExecStart=/usr/bin/npm start`,
 `Restart=on-failure`, `User=plfe`; use a second unit with `npm run worker`.
