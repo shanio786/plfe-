@@ -9,6 +9,7 @@
     "dev": "npm --prefix artifacts/plfe run dev",
     "db:migrate": "npm --prefix artifacts/plfe run db:migrate",
     "db:seed": "npm --prefix artifacts/plfe run db:seed",
+    "db:seed:accounts": "npm --prefix artifacts/plfe run db:seed:accounts --",
     "worker": "npm --prefix artifacts/plfe run worker",
     "test:phase1": "npm --prefix artifacts/plfe test",
     "typecheck:libs": "tsc --build",

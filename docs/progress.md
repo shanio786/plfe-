@@ -69,13 +69,20 @@
   strings, support source/reversal drill-through and scoped attachments, and
   show independent-approval requests without pretending they have executed.
   Static integration passed; live seeded-data/browser checks are scheduled below.
+- **Phase 2 step 4 complete:** initialized both companies from the same thirty-seven
+  account expo template, with five journals, three departments, thirteen number
+  series and independent posting mappings. Existing credentials were not changed.
+- Added an explicit `--demo` seed, separate from ordinary initialization/startup.
+  Both PLFE and ZAHRA HOME now have twenty clearly marked `TEST-P2` mixed posted
+  documents, including notes, partial/split payments, an advance application,
+  vouchers and an expense with a private attached test bill. Both seeded trial
+  balances agree. Cancellation/reversal acceptance remains in step 5.
 
 ## Half-done
 
-- **Phase 2 Accounts core:** migration, services and screens implemented but not
-  yet verified against seeded live data. Both-company test
-  seed and accounting acceptance remain to
-  be delivered. See `docs/phase2-decisions.md`.
+- **Phase 2 Accounts core:** migration, services, screens and both-company seed
+  are implemented. Automated constraint/security/reversal checks, production
+  build and critical browser acceptance remain. See `docs/phase2-decisions.md`.
 
 ## Deferred to Phase 9
 
@@ -87,10 +94,9 @@
 
 ## Next
 
-1. Seed the shared expo chart and clearly identified test data for both companies.
-2. Verify balance constraints, numbering concurrency, company isolation, allocations,
+1. Verify balance constraints, numbering concurrency, company isolation, allocations,
    cancellations and the twenty-document acceptance scenario.
-3. Update module/progress documentation and explain how to run Phase 2 acceptance.
+2. Update module/progress documentation and explain how to run Phase 2 acceptance.
    Commit and push after each completed step. Stop before Phase 3.
 
 ## Workflow for each completed step

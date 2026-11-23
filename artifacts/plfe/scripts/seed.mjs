@@ -6,5 +6,6 @@ if(process.env.MIGRATION_DATABASE_URL) {
   process.env.DATABASE_URL=process.env.MIGRATION_DATABASE_URL;
   delete process.env.PLFE_DATABASE_URL;
 }
-const result=spawnSync("tsx",["prisma/seed.ts"],{stdio:"inherit",shell:false,env:process.env});
+const accounts=process.argv[2]==="accounts";
+const result=spawnSync("tsx",[accounts?"prisma/seed-accounts.ts":"prisma/seed.ts",...(accounts?process.argv.slice(3):process.argv.slice(2))],{stdio:"inherit",shell:false,env:process.env});
 process.exit(result.status??1);
