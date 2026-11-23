@@ -1,0 +1,53 @@
+# PLFE progress
+
+## Done
+
+- Phase 1 foundation implemented in Next.js 15, TypeScript and PostgreSQL 16,
+  using Prisma migrations and portable npm commands.
+- Company and branch administration; global users and Owners; company-specific
+  roles, permissions and memberships.
+- Opaque hashed sessions, password policy and forced initial password change.
+- Financial years and periods, transaction-safe numbering, approval rules and
+  the Phase 1 branch-deactivation approval flow.
+- Protected private-disk attachments, company-scoped Excel exports and audit logs.
+- Initialized PLFE and ZAHRA HOME, each with eleven roles, a Head Office, one
+  financial year with twelve periods, approval defaults and invoice numbering.
+- Initialized one active Owner; the temporary password must change on first login.
+- Production build, standard `npm start`, worker startup and database health checks
+  passed locally. All seventeen service/database checks passed.
+- Added Docker Compose, Nginx templates, deployment and backup guidance, the
+  schema diagram and the Phase 1 acceptance checklist in `docs/setup.md`.
+- Documented the requirement to update this file, commit clearly and push to
+  GitHub after each completed step. Environment files and private credentials
+  are excluded from version control; only placeholder `.env.example` files belong
+  in Git.
+
+## Half-done
+
+- **Phase 1 acceptance:** implementation and local checks passed; user review,
+  manual acceptance and real-data sign-off remain.
+- **Deployment:** portable deployment files and instructions are supplied; Docker
+  deployment and the user's VPS have not been exercised or signed off.
+- **GitHub synchronization:** GitHub access is attached, but no target GitHub
+  repository is configured. Only the workspace backup remote currently exists;
+  no GitHub push has been performed.
+
+## Next
+
+1. Obtain the intended GitHub repository URL, configure that remote without
+   replacing the workspace backup remote, and push the committed work.
+2. Complete first-login password change and review the Phase 1 screens.
+3. Complete the independent pre-deployment code/security review.
+4. Configure the VPS environment, database roles, private upload persistence,
+   HTTPS and backups; deploy and run the documented Phase 1 acceptance checklist.
+5. Resolve any Phase 1 acceptance findings. Stop before Accounts until authorized.
+
+## Workflow for each completed step
+
+1. Record the actual outcome here under Done, Half-done and Next. Do not list
+   unverified work as completed.
+2. Check the staged changes for environment files, secrets, private keys, uploaded
+   business data and generated build outputs. Never commit or push them.
+3. Commit the completed step with a clear message.
+4. Push to the agreed GitHub remote and report success only after it is confirmed.
+   If blocked, keep the local commit and report the exact outstanding requirement.

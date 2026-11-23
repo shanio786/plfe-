@@ -60,3 +60,22 @@ Thumbs.db
 /generated-artifacts/
 /deploy/certificates/
 /deploy/acme/
+
+# Private credentials and signing material: never commit real values.
+.secrets
+.secrets.*
+secrets/
+.secrets/
+secrets.json
+secrets.yaml
+secrets.yml
+secrets.env
+credentials.json
+credentials.*.json
+service-account*.json
+.netrc
+.git-credentials
+*.pem
+*.key
+*.p12
+*.pfx

@@ -4,6 +4,13 @@ Portable multi-company administration foundation. Read `docs/PLAN.md` and the
 approved overrides in `docs/phase1-decisions.md` before changing business rules.
 Only Phase 1 is currently authorized; do not start Accounts without approval.
 
+## Required progress and GitHub workflow
+
+After every completed step, commit with a clear message and push to GitHub.
+Update `docs/progress.md` before every push with what is done, what is half-done,
+and what is next. Make sure `.env` and secrets are in `.gitignore` and never
+pushed. If a push is blocked, report the blocker rather than claiming it succeeded.
+
 ## Run and verify
 
 - `npm run build` / `npm start` — build and run the single Next.js application.
