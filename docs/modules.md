@@ -65,9 +65,9 @@ Company-specific rules, decimal-string payment thresholds and immutable request
 snapshots. Branch deactivation is the working Phase 1 handler, allowing the
 foundation workflow to be exercised without pretending later modules exist.
 Approval locks and checks the target version; decision, action and audits commit
-together. Posted-document cancellations, POS returns, refunds and payments attach
-their own typed handlers in later phases. Their seeded rules do not execute
-nonexistent business actions.
+together. Phase 2 attaches typed financial cancellation and high-value-payment
+handlers. POS returns and refunds remain future-module handlers; their seeded
+rules do not execute nonexistent business actions.
 
 ### Attachments
 
@@ -87,7 +87,115 @@ node-cron session cleanup worker; direct npm operation; Docker/Compose and Nginx
 HTTP-bootstrap/TLS examples; `.env.example`; setup, acceptance and backup guides.
 The Docker/VPS definitions require verification on the actual target host.
 
-## Not implemented in Phase 1
+## Phase 2 — Accounts core
+
+Implemented in the same portable application. Accounts and Admin share the
+authenticated shell, company switcher, permission context, list table and form
+components. No separate runtime, hosted database, authentication SDK or object
+storage was introduced.
+
+### Data and posting boundary
+
+Company-owned chart accounts, parties, departments, journals, entries/lines,
+invoices/lines, bills/lines, payments/allocations and posting mappings. Departments
+are the shared identity HR will reuse. `journal_lines` includes nullable event,
+outlet and department IDs from its first migration. Department references use
+company-composite foreign keys; event/outlet foreign keys wait for their tables.
+Invoice/bill line tax IDs are reserved, without a premature tax-table dependency.
+
+`lib/posting` is the only writer of journal lines, including manual draft edits.
+`modules/accounts/service.ts` is the public financial-write boundary; its helpers
+accept the caller's transaction. Permissions, target-company validation, document
+number, document mutation, entry/lines and redacted audit records commit together.
+Money is numeric(18,4)/Decimal throughout; API and form amounts are strings.
+
+The migration adds **initially deferred PostgreSQL constraint triggers on both
+entries and lines**. Commit rejects empty/unbalanced posted entries, even through
+direct SQL. Row locks serialize line mutation against posting. Posted entries
+and lines cannot be updated, deleted, soft-deleted or truncated. Reversals must
+mirror the original account, party, dimensions and amounts exactly. Original
+entries stay POSTED; their reversal relation indicates that they were reversed.
+Posted source financial fields/lines are also protected. Cancelled documents keep
+their original entry link and gain a reversal-entry link.
+
+### Documents and allocations
+
+Sales invoices and linked credit notes; purchase bills and linked debit notes;
+receipts/payments; journal, cash, bank, transfer and expense vouchers. Drafts can
+be edited or archived; posted documents can only be cancelled by reversal. Posting
+and reversal dates must belong to an open financial year/period.
+
+A payment can cover several same-party invoices/bills, or only part of one.
+Unallocated money remains a party advance; applying it changes allocations,
+not the immutable posted entry. Receipts credit receivables and payments debit
+payables, so unapplied amounts remain visible in the party ledger. Credits/debits
+reduce their linked original document's outstanding. Over-allocation and
+cross-party/company allocation are rejected under a company accounting lock.
+
+Default cancellation and above-threshold outgoing-payment rules require an
+independent approver, including Owners' own requests. Net outgoing cash/bank
+voucher amounts use the payment rule too, preventing a voucher workaround.
+Transfers between bank and cash have no net external outflow. Approval rechecks
+the target version and executes with the decision/audit in one transaction.
+Cancel/reallocate settled payments and reverse related notes before cancelling
+an original invoice/bill. Supporting bills for posted expense vouchers are kept.
+
+### Chart, settings and roles
+
+One shared expo template creates **separate** charts for each company: thirty-seven
+accounts, five journals, three initial departments and thirteen number series.
+First initialization adds the new module grants to named system roles, but later
+runs do not reset edited mappings, charts or grants. New companies initialize
+their chart during authorized company provisioning.
+
+Accountant receives full Phase 2 Accounts access; Viewer receives report/source
+read access only. Other operational roles gain no premature Accounts powers.
+Company settings map receivable, payable and opening-equity accounts plus sales,
+purchase, general, bank and cash journals. Control-account remapping requires a
+settled old balance; historical posting classifications cannot be rewritten.
+Nonzero party opening balances post an audited opening journal, not a floating
+number outside the ledger.
+
+### Screens and reports
+
+`/[company]/accounts/overview`, `chart`, `parties`, `departments`, `journals`,
+`invoices`, `bills`, `payments`, `vouchers`, `settings`, `trial-balance`, `ledger`
+and `party-ledger`. Lists support scoped search, sorting, paging, filters and Excel
+export. Documents, source entries and reversals link to each other. Documents
+support private-disk attachments with target-level Accounts read permission.
+
+SQL-derived trial balance, general/account ledger and party ledger support date
+ranges and account/party/department dimensions. Ledger opening/running/closing
+balances include prior activity. General ledger running balances partition by
+account; party ledger shows the selected party's net balance. Reports include
+originals **and** reversals, never omit history to make a cancellation disappear.
+The overview reads posted liquidity, invoice/bill outstanding and recent entries.
+
+### Seed and verification
+
+Ordinary Accounts initialization creates masters/settings only. An explicit
+`npm run db:seed:accounts -- --demo` adds clearly marked `TEST-P2` documents and
+private synthetic expense bills; never run it in real books. It refuses to mix
+with non-demo posted activity. Both development companies were seeded with
+twenty mixed posted documents and balanced trial balances.
+
+`npm run test:phase2` uses only a dedicated `_test` database. Its sixteen automated
+checks cover the build-order scenario, commit-time balance rejection, immutable
+history, exact money, concurrency/rollback, isolation, allocations, approvals and
+cancellation reversal. See [Phase 2 acceptance](phase2-acceptance.md) for commands
+and the manual accounting test.
+
+## Deferred beyond Accounts core
+
+Phase 3: cheque/petty-cash operations, sales/withholding tax calculations and
+returns, budgets, P&L, balance sheet, aging, cash/bank/day books, PDF printing and
+period lock/reopen UI. Seeded tax-related accounts are not tax functionality.
+
+Later phases: Events, POS, HR, CMS, Odoo opening-balance import and Owner group
+summary. VPS deployment, operational backup scheduling/restore drills, monitoring
+and training remain Phase 9; do not ask for server details before then.
+
+## Historical Phase 1 boundary
 
 Accounts/ledger/posting, fiscal close/reopen, PDFs of money documents, Events,
 visitor registration, POS, HR, CMS, Odoo import and Owner group financial summary.
@@ -96,6 +204,6 @@ go-live work, not falsely represented as operational here.
 
 ## Verification
 
-The automated foundation suite exercises 17 service/database checks. See
+The automated foundation suite exercises 24 checks. See
 `docs/setup.md` for the safety-isolated test command and the exact manual Phase 1
 acceptance procedure. Synthetic fixtures do not count as real-data sign-off.

@@ -60,7 +60,8 @@
 - Added the accounting API, scoped document attachments/exports, SQL trial balance,
   general/account/party ledgers and posted-entry overview. High-value net cash/bank
   outflows through vouchers use the payment approval rule too. Application and
-  shared-library type checks passed; runtime accounting acceptance is still pending.
+  shared-library type checks passed; automated runtime checks are recorded in
+  Phase 2 step 5 below.
 - **Phase 2 step 3 complete:** added the Accounts workspace in the accepted shared
   shell, with chart/party/department/journal management, invoices/credit notes,
   bills/debit notes, receipts/payments and advance allocation, manual vouchers,
@@ -68,14 +69,15 @@
 - The Accounts screens reuse the Phase 1 table/forms, keep money as decimal
   strings, support source/reversal drill-through and scoped attachments, and
   show independent-approval requests without pretending they have executed.
-  Static integration passed; live seeded-data/browser checks are scheduled below.
+  Static integration passed; signed-in browser acceptance remains unverified below.
 - **Phase 2 step 4 complete:** initialized both companies from the same thirty-seven
   account expo template, with five journals, three departments, thirteen number
   series and independent posting mappings. Existing credentials were not changed.
 - Added an explicit `--demo` seed, separate from ordinary initialization/startup.
   Both PLFE and ZAHRA HOME now have twenty clearly marked `TEST-P2` mixed posted
   documents, including notes, partial payments, an advance application, vouchers
-  and an expense with a private attached test bill. Both trial balances agree.
+  and an expense with a private attached test bill. Both trial balances agree;
+  automated cancellation/reversal acceptance passed in step 5.
 - **Phase 2 step 5 complete:** sixteen automated accounting tests pass against
   the isolated `plfe_test` database; all twenty-four Phase 1 regression tests
   pass, and the optimized production build succeeds. Tests cover the Build-order
@@ -83,14 +85,17 @@
   isolation, allocation/advance handling and independent invoice reversal.
 - Added a dedicated `npm run test:phase2` guard that refuses non-`_test`
   databases. No Owner password or real credential was used or reset.
-- Final browser login and signed-in Accounts pages could not be verified in this
-  run because the available automated-browser testing service was unavailable.
+- **Phase 2 step 6 complete:** documented module responsibilities, phase limits,
+  seed safety, automated and manual acceptance, and the root test command in
+  `docs/modules.md` and `docs/phase2-acceptance.md`.
+- Phase 2 implementation steps 1–6 are complete and pushed to GitHub. The final
+  browser view remained at sign-in; signed-in screens were not browser-verified
+  because the available automated-browser testing service was unavailable.
 
 ## Half-done
 
-- Phase 2 documentation and final handover are being finalized in
-  `docs/modules.md` and `docs/phase2-acceptance.md`. Automated checks and build
-  are complete; signed-in browser acceptance remains unverified.
+None in the authorized Phase 2 implementation scope. Signed-in browser
+acceptance remains an unverified manual/UI check, not a passed test.
 
 ## Deferred to Phase 9
 
@@ -102,9 +107,7 @@
 
 ## Next
 
-1. Commit and push the completed Phase 2 automated-test step.
-2. Finish/update module and acceptance documentation, then commit and push that
-   documentation step. Stop before Phase 3.
+1. Stop here. Wait for authorization before starting Phase 3.
 
 ## Workflow for each completed step
 
