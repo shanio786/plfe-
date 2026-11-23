@@ -1,0 +1,23 @@
+kind = "web"
+previewPath = "/"
+title = "PLFE Business System"
+description = "Phase 1 multi-company administration foundation for PLFE and ZAHRA HOME. A portable Next.js 15 application with PostgreSQL, company-scoped access, audit logs and secure database sessions."
+version = "1.0.0"
+id = "artifacts/plfe"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/", "/api/plfe" ]
+localPort = 21037
+
+[services.development]
+run = "npm start"
+
+[services.production]
+build = [ "npm", "run", "build" ]
+run = "npm start"
+
+[services.env]
+PORT = "21037"
+BASE_PATH = "/"

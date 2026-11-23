@@ -1,0 +1,90 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap");
+@import "tailwindcss";
+
+/* PLFE "Ledger & Lantern": warm ivory paper, deep claret ink, saffron signal, slate-teal secondary */
+:root {
+  --ink: 345 45% 14%;
+  --background: 38 33% 96%;
+  --foreground: 345 30% 13%;
+  --card: 40 40% 99%;
+  --card-foreground: 345 30% 13%;
+  --popover: 40 40% 99%;
+  --popover-foreground: 345 30% 13%;
+  --primary: 347 62% 30%;
+  --primary-foreground: 38 60% 96%;
+  --secondary: 188 24% 90%;
+  --secondary-foreground: 192 40% 20%;
+  --muted: 36 26% 91%;
+  --muted-foreground: 340 8% 40%;
+  --accent: 39 88% 52%;
+  --accent-foreground: 345 45% 14%;
+  --destructive: 8 72% 44%;
+  --destructive-foreground: 38 60% 96%;
+  --success: 158 46% 30%;
+  --border: 34 20% 84%;
+  --input: 34 20% 80%;
+  --ring: 347 62% 30%;
+  --sidebar: 345 42% 13%;
+  --radius: 0.5rem;
+}
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-success: hsl(var(--success));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-sidebar: hsl(var(--sidebar));
+  --color-ink: hsl(var(--ink));
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+}
+
+@layer base {
+  * { border-color: hsl(var(--border)); }
+  body {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "tnum";
+  }
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.ledger-lines {
+  background-image: repeating-linear-gradient(to bottom, transparent 0 31px, hsl(var(--primary-foreground) / 0.06) 31px 32px);
+}
+
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.rise-1 { animation-delay: 60ms; } .rise-2 { animation-delay: 120ms; } .rise-3 { animation-delay: 180ms; } .rise-4 { animation-delay: 240ms; }
+@keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }

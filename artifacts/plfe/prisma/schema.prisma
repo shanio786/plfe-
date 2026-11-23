@@ -1,0 +1,341 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id               String    @id @default(uuid()) @db.Uuid
+  code             String    @db.VarChar(30)
+  name             String    @db.VarChar(200)
+  legalName        String    @map("legal_name") @db.VarChar(250)
+  ntn              String?
+  strn             String?
+  address          String?
+  phone            String?
+  email            String?
+  logoAttachmentId String?   @map("logo_attachment_id") @db.Uuid
+  currency         String    @db.Char(3)
+  fyStartMonth     Int       @map("fy_start_month")
+  lockDate         DateTime? @map("lock_date") @db.Date
+  active           Boolean   @default(true)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy        String?   @map("created_by") @db.Uuid
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy        String?   @map("updated_by") @db.Uuid
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  branches         Branch[]
+  roles            Role[]
+  memberships      UserCompanyRole[]
+  rolePermissions  RolePermission[]
+  fiscalYears      FiscalYear[]
+  periods          Period[]
+  series           NumberSeries[]
+  sequences        Sequence[]
+  approvalRules    ApprovalRule[]
+  approvals        Approval[]
+  attachments      Attachment[]
+  auditLogs        AuditLog[]
+  @@map("companies")
+}
+
+model User {
+  id                       String    @id @default(uuid()) @db.Uuid
+  name                     String
+  email                    String
+  passwordHash             String    @map("password_hash")
+  phone                    String?
+  photoStorageKey          String?   @map("photo_storage_key")
+  active                   Boolean   @default(true)
+  isOwner                  Boolean   @default(false) @map("is_owner")
+  mustChangePassword       Boolean   @default(true) @map("must_change_password")
+  failedLogins             Int       @default(0) @map("failed_logins")
+  lockedUntil              DateTime? @map("locked_until") @db.Timestamptz(6)
+  passwordChangedAt        DateTime? @map("password_changed_at") @db.Timestamptz(6)
+  lastLoginAt              DateTime? @map("last_login_at") @db.Timestamptz(6)
+  twoFactorEnabled         Boolean   @default(false) @map("two_factor_enabled")
+  twoFactorSecretEncrypted String?   @map("two_factor_secret_encrypted")
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy                String?   @map("created_by") @db.Uuid
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy                String?   @map("updated_by") @db.Uuid
+  deletedAt                DateTime? @map("deleted_at") @db.Timestamptz(6)
+  memberships              UserCompanyRole[]
+  sessions                 Session[]
+  auditLogs                AuditLog[]
+  uploads                  Attachment[]
+  requests                 Approval[] @relation("Requester")
+  decisions                Approval[] @relation("Decider")
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash") @db.Char(64)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  lastSeenAt DateTime @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  ip        String?  @db.VarChar(45)
+  device    String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User     @relation(fields:[userId],references:[id],onDelete:Restrict)
+  @@index([userId, expiresAt])
+  @@map("sessions")
+}
+
+model Branch {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @map("company_id") @db.Uuid
+  code      String
+  name      String
+  type      String
+  address   String?
+  phone     String?
+  active    Boolean   @default(true)
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company   Company   @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  @@unique([id,companyId])
+  @@index([companyId,deletedAt])
+  @@map("branches")
+}
+
+model Permission {
+  code        String @id
+  description String
+  grants      RolePermission[]
+  rules       ApprovalRule[]
+  @@map("permissions")
+}
+
+model Role {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String    @map("company_id") @db.Uuid
+  name        String
+  description String?
+  isSystem    Boolean   @default(false) @map("is_system")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy   String?   @map("created_by") @db.Uuid
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy   String?   @map("updated_by") @db.Uuid
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company     Company   @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  grants      RolePermission[]
+  memberships UserCompanyRole[]
+  @@unique([id,companyId])
+  @@map("roles")
+}
+
+model RolePermission {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  roleId         String   @map("role_id") @db.Uuid
+  permissionCode String   @map("permission_code")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?  @map("created_by") @db.Uuid
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy      String?  @map("updated_by") @db.Uuid
+  company        Company @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  role           Role    @relation(fields:[roleId,companyId],references:[id,companyId],onDelete:Restrict)
+  permission     Permission @relation(fields:[permissionCode],references:[code],onDelete:Restrict)
+  @@unique([companyId,roleId,permissionCode])
+  @@map("role_permissions")
+}
+
+model UserCompanyRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?  @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String?  @map("updated_by") @db.Uuid
+  company   Company @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  role      Role    @relation(fields:[roleId,companyId],references:[id,companyId],onDelete:Restrict)
+  user      User    @relation(fields:[userId],references:[id],onDelete:Restrict)
+  @@unique([companyId,userId,roleId])
+  @@index([userId,companyId])
+  @@map("user_company_roles")
+}
+
+model FiscalYear {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @map("company_id") @db.Uuid
+  name      String
+  startDate DateTime  @map("start_date") @db.Date
+  endDate   DateTime  @map("end_date") @db.Date
+  isClosed  Boolean   @default(false) @map("is_closed")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company   Company   @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  periods   Period[]
+  sequences Sequence[]
+  @@unique([id,companyId])
+  @@map("fiscal_years")
+}
+
+model Period {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  fiscalYearId String    @map("fiscal_year_id") @db.Uuid
+  name         String
+  startDate    DateTime  @map("start_date") @db.Date
+  endDate      DateTime  @map("end_date") @db.Date
+  isClosed     Boolean   @default(false) @map("is_closed")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company      Company   @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  fiscalYear   FiscalYear @relation(fields:[fiscalYearId,companyId],references:[id,companyId],onDelete:Restrict)
+  @@unique([id,companyId])
+  @@map("periods")
+}
+
+model NumberSeries {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @map("company_id") @db.Uuid
+  docType   String    @map("doc_type")
+  prefix    String
+  format    String
+  padding   Int
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String?   @map("created_by") @db.Uuid
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String?   @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company   Company   @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  sequences Sequence[]
+  @@unique([id,companyId])
+  @@map("number_series")
+}
+
+model Sequence {
+  id           String    @id @default(uuid()) @db.Uuid
+  companyId    String    @map("company_id") @db.Uuid
+  seriesId     String    @map("series_id") @db.Uuid
+  docType      String    @map("doc_type")
+  fiscalYearId String    @map("fiscal_year_id") @db.Uuid
+  prefix       String
+  format       String
+  padding      Int
+  nextNumber   BigInt    @default(1) @map("next_number")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy    String?   @map("created_by") @db.Uuid
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy    String?   @map("updated_by") @db.Uuid
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company      Company   @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  series       NumberSeries @relation(fields:[seriesId,companyId],references:[id,companyId],onDelete:Restrict)
+  fiscalYear   FiscalYear @relation(fields:[fiscalYearId,companyId],references:[id,companyId],onDelete:Restrict)
+  @@map("sequences")
+}
+
+model ApprovalRule {
+  id                     String    @id @default(uuid()) @db.Uuid
+  companyId              String    @map("company_id") @db.Uuid
+  docType                String    @map("doc_type")
+  action                 String
+  approverPermissionCode String    @map("approver_permission_code")
+  thresholdAmount        Decimal?  @map("threshold_amount") @db.Decimal(18,4)
+  active                 Boolean   @default(true)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy              String?   @map("created_by") @db.Uuid
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy              String?   @map("updated_by") @db.Uuid
+  deletedAt              DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company                Company   @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  permission             Permission @relation(fields:[approverPermissionCode],references:[code],onDelete:Restrict)
+  approvals              Approval[]
+  @@unique([id,companyId])
+  @@map("approval_rules")
+}
+
+model Approval {
+  id             String    @id @default(uuid()) @db.Uuid
+  companyId      String    @map("company_id") @db.Uuid
+  ruleId         String    @map("rule_id") @db.Uuid
+  docType        String    @map("doc_type")
+  docId          String    @map("doc_id") @db.Uuid
+  action         String
+  operationKey   String    @map("operation_key") @db.Uuid
+  requestedBy    String    @map("requested_by") @db.Uuid
+  requestedAt    DateTime  @default(now()) @map("requested_at") @db.Timestamptz(6)
+  status         String    @default("PENDING")
+  requestNote    String?   @map("request_note")
+  requestData    Json      @map("request_data")
+  targetVersion  Int       @map("target_version")
+  ruleSnapshot   Json      @map("rule_snapshot")
+  decidedBy      String?   @map("decided_by") @db.Uuid
+  decidedAt      DateTime? @map("decided_at") @db.Timestamptz(6)
+  decisionNote   String?   @map("decision_note")
+  executedAt     DateTime? @map("executed_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy      String?   @map("updated_by") @db.Uuid
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company        Company   @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  rule           ApprovalRule @relation(fields:[ruleId,companyId],references:[id,companyId],onDelete:Restrict)
+  requester      User      @relation("Requester",fields:[requestedBy],references:[id],onDelete:Restrict)
+  decider        User?     @relation("Decider",fields:[decidedBy],references:[id],onDelete:Restrict)
+  @@unique([companyId,operationKey])
+  @@index([companyId,status,requestedAt])
+  @@map("approvals")
+}
+
+model Attachment {
+  id         String    @id @default(uuid()) @db.Uuid
+  companyId  String    @map("company_id") @db.Uuid
+  docType    String    @map("doc_type")
+  docId      String    @map("doc_id") @db.Uuid
+  filePath   String    @map("file_path")
+  name       String
+  size       BigInt
+  mime       String
+  checksum   String
+  uploadedBy String    @map("uploaded_by") @db.Uuid
+  expiresAt  DateTime? @map("expires_at") @db.Date
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy  String?   @map("created_by") @db.Uuid
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy  String?   @map("updated_by") @db.Uuid
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company    Company   @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  uploader   User      @relation(fields:[uploadedBy],references:[id],onDelete:Restrict)
+  @@unique([id,companyId])
+  @@index([companyId,docType,docId])
+  @@map("attachments")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String?  @map("company_id") @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String
+  tableName  String   @map("table_name")
+  recordId   String?  @map("record_id") @db.Uuid
+  beforeJson Json?    @map("before_json")
+  afterJson  Json?    @map("after_json")
+  ip         String?  @db.VarChar(45)
+  device     String?
+  requestId  String   @map("request_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  company    Company? @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  user       User?    @relation(fields:[userId],references:[id],onDelete:Restrict)
+  @@index([companyId,createdAt])
+  @@index([companyId,tableName,recordId])
+  @@map("audit_logs")
+}

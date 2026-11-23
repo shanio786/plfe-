@@ -1,45 +1,36 @@
-# [Project name]
+# PLFE Business System
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Portable multi-company administration foundation. Read `docs/PLAN.md` and the
+approved overrides in `docs/phase1-decisions.md` before changing business rules.
+Only Phase 1 is currently authorized; do not start Accounts without approval.
 
-## Run & Operate
+## Run and verify
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `npm run build` / `npm start` — build and run the single Next.js application.
+- `npm run worker` — run the foundation session-cleanup worker.
+- `npm run db:migrate` / `npm run db:seed` — explicit Prisma migrations and seed.
+- `npm run test:phase1` — isolated PostgreSQL service/database tests.
+- Tests require a dedicated `TEST_DATABASE_URL` ending in `_test`, never live data.
+- Application settings are documented in `.env.example`.
 
-## Stack
+## Application structure
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+`artifacts/plfe/` is the portable app root: `app/`, `modules/core/`, `lib/`,
+`components/`, `prisma/`, `scripts/`. Root npm commands delegate there.
+Deploy only that app with the supplied Docker definition, or use root npm scripts
+directly. The earlier API/mockup scaffolds are not part of this business
+application and are not runtime dependencies.
 
-## Where things live
+## Stack and invariants
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+Next.js 15 App Router, TypeScript, PostgreSQL 16, Prisma 6 with committed SQL
+migrations, Zod, Tailwind/shadcn, TanStack Table and ExcelJS.
+Custom opaque database sessions were approved instead of Auth.js; only SHA-256
+token hashes are stored. Passwords use bcrypt. Private files use `UPLOAD_DIR`.
+No platform-specific authentication, storage, database client or runtime.
+Money uses database numeric(18,4), Prisma Decimal and decimal.js, never JS numbers.
+Business reads are company-scoped. Writes authorize, transact and audit through
+services. Owners are global flags, not merely a company role named Owner.
 
-## Architecture decisions
-
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
-
-## Product
-
-_Describe the high-level user-facing capabilities of this app once they exist._
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+See `docs/setup.md`, `docs/modules.md` and `docs/backup.md` for deployment,
+acceptance, implementation boundaries and operations.

@@ -1,0 +1,55 @@
+export const L = {
+  brand: { name: "PLFE Business System", short: "PLFE", group: "PLFE Expos · ZAHRA HOME", tagline: "Company, branch, user and control administration for the group.", footer: "Lahore · Karachi · Islamabad" },
+  common: {
+    save: "Save", cancel: "Cancel", create: "New", edit: "Edit", delete: "Delete", close: "Close", search: "Search", export: "Export Excel",
+    loading: "Loading", retry: "Try again", yes: "Yes", no: "No", active: "Active", inactive: "Inactive", actions: "Actions", details: "Details",
+    confirmDelete: "Delete this record?", confirmDeleteBody: "The record will be removed from active lists. This is recorded in the audit trail.",
+    saved: "Saved", deleted: "Deleted", empty: "Nothing here yet", emptyBody: "Records you add will appear in this ledger.", noResults: "No records match your filters.",
+    page: "Page", of: "of", rows: "records", prev: "Previous", next: "Next", allStatuses: "All statuses", status: "Status", required: "Required",
+    denied: "Your role does not permit this action.", errorTitle: "Could not load", signOut: "Sign out", system: "System", custom: "Custom", owner: "Owner", download: "Download", none: "None",
+  },
+  login: {
+    title: "Sign in", subtitle: "Use the credentials issued by your administrator.", email: "Email address", password: "Password", submit: "Sign in", working: "Signing in",
+    secure: "Secure, revocable sessions. Company-scoped access.", heroLead: "One administration for", heroWords: ["expo halls", "showroom floors", "warehouses", "event sites"],
+  },
+  home: { title: "Choose a company", subtitle: "Your access is scoped per company. Pick one to open its workspace.", none: "No company access has been granted to this account yet. Contact an owner.", open: "Open workspace" },
+  pw: {
+    title: "Set a new password", forced: "Your administrator requires you to choose a new password before continuing.", current: "Current password", next: "New password", confirm: "Confirm new password",
+    rule: "At least 10 characters, including a letter and a digit.", mismatch: "Passwords do not match", submit: "Update password", done: "Password updated",
+  },
+  nav: {
+    groups: { workspace: "Workspace", organisation: "Organisation", controls: "Controls", security: "Security" },
+    overview: "Overview", companies: "Companies", branches: "Branches", users: "Users", roles: "Roles & permissions", numbering: "Document numbering",
+    "fiscal-years": "Fiscal years", "approval-rules": "Approval rules", approvals: "Approvals", attachments: "Attachments", audit: "Audit trail", profile: "My profile", sessions: "Sessions",
+    switchCompany: "Switch company",
+  } as Record<string, any>,
+  sub: {
+    overview: "Today's state of this company at a glance.", companies: "Legal entities, tax identity and fiscal defaults.", branches: "Offices, showrooms, warehouses and event sites.",
+    users: "People with access to this company and their roles.", roles: "Bundles of permissions granted to users.", numbering: "Prefix and format rules for future documents. Counters are read-only.",
+    "fiscal-years": "Financial years and their twelve generated periods.", "approval-rules": "Who must approve what, above which amount.", approvals: "Requests waiting for a second person.",
+    attachments: "Files stored on protected disk, linked to records.", audit: "Every change, who made it and when.", profile: "Your identity and password.", sessions: "Signed-in devices. Revoke anything you do not recognise.",
+  } as Record<string, string>,
+  overview: { stats: { branches: "Branches", users: "Users", roles: "Roles", pendingApprovals: "Pending approvals", attachments: "Attachments" }, activity: "Recent activity", noActivity: "No activity recorded yet.", fy: "Current fiscal year", noFy: "No fiscal year defined", closed: "Closed", open: "Open", permissions: "Your permissions" },
+  f: {
+    code: "Code", name: "Name", legalName: "Legal name", ntn: "NTN", strn: "STRN", address: "Address", phone: "Phone", email: "Email", currency: "Currency", fyStartMonth: "FY start month",
+    active: "Active", lockDate: "Lock date", type: "Type", description: "Description", isOwner: "Owner (all companies)", mustChangePassword: "Must change password", password: "Initial password",
+    roleIds: "Roles in this company", roles: "Roles", permissionCodes: "Permissions", docType: "Document type", prefix: "Prefix", format: "Format", padding: "Padding", startDate: "Start date",
+    endDate: "End date", isClosed: "State", action: "Action", approverPermissionCode: "Approver permission", thresholdAmount: "Threshold (PKR)", requesterName: "Requested by", requestNote: "Request note",
+    decisionNote: "Decision note", requestedAt: "Requested", tableName: "Table", recordId: "Record", actorName: "Actor", createdAt: "When", ip: "IP", userName: "User", lastSeenAt: "Last seen",
+    expiresAt: "Expires", device: "Device", fileName: "File", size: "Size", docId: "Linked record", logo: "Company logo", sequences: "Counters", isSystem: "Type", before: "Before", after: "After",
+  } as Record<string, string>,
+  branchTypes: { OFFICE: "Office", SHOWROOM: "Showroom", WAREHOUSE: "Warehouse", EVENT_SITE: "Event site" } as Record<string, string>,
+  approvalStatus: { PENDING: "Pending", APPROVED: "Approved", REJECTED: "Rejected", CANCELLED: "Cancelled" } as Record<string, string>,
+  months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+  actions: {
+    requestDeactivate: "Request deactivation", requestNote: "Why should this branch be deactivated?", requested: "Deactivation request submitted for approval",
+    approve: "Approve", reject: "Reject", withdraw: "Withdraw", note: "Note", resetPassword: "Reset password", newPassword: "New password", reset: "Password reset",
+    revoke: "Revoke", revoked: "Session revoked", current: "This device", upload: "Upload file", uploading: "Uploading", uploaded: "File uploaded", chooseFile: "Choose a file",
+    uploadLogo: "Upload logo", logoSaved: "Logo updated", periods: "Periods", viewPeriods: "Periods", fyHint: "Saving generates twelve monthly periods automatically.",
+    memberships: "Company access", membershipsSub: "Link existing people to roles in this company.", addAccess: "Grant access", user: "Person", role: "Role", accessGranted: "Access granted", removeAccess: "Remove access", noAccessRead: "You do not have permission to view this section.", selfGrants: "You cannot change your own role grants.",
+    uploadPhoto: "Upload photo", photoSaved: "Photo updated", scopeCompany: "Company activity", scopeSystem: "Login and system activity", from: "From", to: "To", anyUser: "Any user", tableFilter: "Table name", clearFilters: "Clear filters", profileSaved: "Profile updated", editProfile: "Edit details", noPhoto: "No photo",
+    formatHint: "Tokens: {PREFIX} {TYPE} {FY} {NUMBER}", thresholdHint: "Decimal amount, e.g. 500000.0000", auditDetail: "Change detail",
+  },
+  profile: { identity: "Identity", companies: "Company access", changePw: "Change password" },
+};
+export type Section = keyof typeof L.sub;

@@ -3,15 +3,18 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "postinstall": "node scripts/install-app.mjs",
+    "build": "npm --prefix artifacts/plfe run build",
+    "start": "npm --prefix artifacts/plfe start",
+    "dev": "npm --prefix artifacts/plfe run dev",
+    "db:migrate": "npm --prefix artifacts/plfe run db:migrate",
+    "db:seed": "npm --prefix artifacts/plfe run db:seed",
+    "worker": "npm --prefix artifacts/plfe run worker",
+    "test:phase1": "npm --prefix artifacts/plfe test",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },
   "private": true,
-  "dependencies": {
-    "@replit/connectors-sdk": "^0.7.0"
-  },
   "devDependencies": {
     "prettier": "^3.9.10",
     "typescript": "~5.9.3"

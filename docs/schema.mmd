@@ -1,0 +1,22 @@
+erDiagram
+    companies ||--o{ branches : owns
+    companies ||--o{ roles : owns
+    companies ||--o{ user_company_roles : authorizes
+    users ||--o{ user_company_roles : assigned
+    roles ||--o{ user_company_roles : grants
+    roles ||--o{ role_permissions : contains
+    permissions ||--o{ role_permissions : referenced
+    users ||--o{ sessions : authenticates
+    companies ||--o{ fiscal_years : owns
+    fiscal_years ||--o{ periods : contains
+    companies ||--o{ number_series : configures
+    number_series ||--o{ sequences : counts
+    fiscal_years ||--o{ sequences : resets
+    companies ||--o{ approval_rules : configures
+    permissions ||--o{ approval_rules : authorizes
+    approval_rules ||--o{ approvals : governs
+    users ||--o{ approvals : requests_or_decides
+    companies ||--o{ attachments : owns
+    users ||--o{ attachments : uploads
+    companies o|--o{ audit_logs : scopes
+    users o|--o{ audit_logs : performs
