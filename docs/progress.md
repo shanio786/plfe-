@@ -42,11 +42,19 @@
   `npm start` and database health checks. The final dependency scan remained clear.
 - Matched the form resolver to patched Zod 4 and added a shared-form regression
   covering both invalid field errors and valid submissions.
+- **Phase 2 step 1 complete:** added the Accounts-only migration (thirteen new
+  tables), accounting departments and nullable event/outlet/department ledger
+  tags. Company-composite foreign keys protect accounting references.
+- PostgreSQL now has initially deferred parent/line balance constraint triggers,
+  posted-entry/line protection, exact reversal matching and posted-document
+  protection. Prisma validation/generation and migration deployment passed on
+  both local development and isolated test databases; deferred-trigger metadata
+  and the three dimension columns were verified.
 
 ## Half-done
 
-- **Phase 2 Accounts core:** authorized and started. Migration, shared posting,
-  services, screens, both-company test seed and accounting acceptance remain to
+- **Phase 2 Accounts core:** migration applied. Shared posting, services, screens,
+  both-company test seed and accounting acceptance remain to
   be delivered. See `docs/phase2-decisions.md`.
 
 ## Deferred to Phase 9
@@ -59,14 +67,12 @@
 
 ## Next
 
-1. Add the Phase 2-only migration with accounting dimensions, deferred balance
-   enforcement and immutable posted entries.
-2. Implement shared posting/reversals and authorized, transactional, audited services.
-3. Build Accounts screens using the shared Phase 1 table/forms.
-4. Seed the shared expo chart and clearly identified test data for both companies.
-5. Verify balance constraints, numbering concurrency, company isolation, allocations,
+1. Implement shared posting/reversals and authorized, transactional, audited services.
+2. Build Accounts screens using the shared Phase 1 table/forms.
+3. Seed the shared expo chart and clearly identified test data for both companies.
+4. Verify balance constraints, numbering concurrency, company isolation, allocations,
    cancellations and the twenty-document acceptance scenario.
-6. Update module/progress documentation and explain how to run Phase 2 acceptance.
+5. Update module/progress documentation and explain how to run Phase 2 acceptance.
    Commit and push after each completed step. Stop before Phase 3.
 
 ## Workflow for each completed step
