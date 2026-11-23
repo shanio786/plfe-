@@ -12,6 +12,7 @@
     "db:seed:accounts": "npm --prefix artifacts/plfe run db:seed:accounts --",
     "worker": "npm --prefix artifacts/plfe run worker",
     "test:phase1": "npm --prefix artifacts/plfe test",
+    "test:phase2": "npm --prefix artifacts/plfe run test:phase2",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },

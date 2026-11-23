@@ -31,7 +31,7 @@ async function enrich(tx:Tx,companyId:string,resource:string,rows:any[]) {
       const credited=notes.find(n=>n.originalId===r.id)?._sum.total??zero();
       const note=invoice?r.kind==="CREDIT_NOTE":r.kind==="DEBIT_NOTE";
       const balance=r.status==="CANCELLED"||note&&r.status==="POSTED"?zero():r.total.sub(paid).sub(credited);
-      return {...r,paid:paid.toFixed(4),credited:credited.toFixed(4),outstanding:balance.toFixed(4),settlementStatus:r.status==="DRAFT"?"DRAFT":note?"APPLIED":balance.eq("0")?"PAID":paid.add(credited).gt("0")?"PART_PAID":"UNPAID"};
+      return {...r,paid:paid.toFixed(4),credited:credited.toFixed(4),outstanding:balance.toFixed(4),settlementStatus:r.status==="CANCELLED"?"CANCELLED":r.status==="DRAFT"?"DRAFT":note?"APPLIED":balance.eq("0")?"PAID":paid.add(credited).gt("0")?"PART_PAID":"UNPAID"};
     });
   }
   if(resource==="entries") {

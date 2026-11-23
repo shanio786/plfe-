@@ -1,4 +1,5 @@
 import {Prisma} from "@prisma/client";
+import {z} from "zod";
 import {db} from "@/lib/db";
 import {companyScope} from "@/lib/permissions";
 import {redact} from "@/lib/audit";
@@ -7,6 +8,7 @@ import {listSchema} from "@/modules/core/schema";
 import type {Actor} from "@/modules/core/model";
 import {dateOnly,record,type Tx} from "./model";
 import {zero} from "./balances";
+const reportPageSchema=listSchema.extend({pageSize:z.coerce.number().int().min(1).max(1000).default(100)});
 
 async function conditions(tx:Tx,companyId:string,raw:Record<string,string>) {
   for(const [key,resource] of [["accountId","chart"],["partyId","parties"],["departmentId","departments"]])
@@ -24,7 +26,7 @@ async function conditions(tx:Tx,companyId:string,raw:Record<string,string>) {
 }
 export async function accountsReport(actor:Actor,code:string,report:string,raw:Record<string,string>,exporting=false) {
   if(!["trial-balance","ledger","party-ledger"].includes(report))throw new AppError(404,"Unknown accounting report");
-  const p=listSchema.parse(raw);
+  const p=reportPageSchema.parse(raw);
   return db.$transaction(async tx=>{
     const company=await companyScope(tx,actor,code,"accounts.report.read"),companyId=company.id;
     if(report==="party-ledger"&&!raw.partyId)throw new AppError(400,"Select a party for its ledger");

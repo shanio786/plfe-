@@ -19,7 +19,7 @@ export async function outstanding(tx:Tx,companyId:string,resource:"invoices"|"bi
   const paid=allocations._sum.amount??zero(),credited=notes._sum.total??zero();
   const note=invoice?doc.kind==="CREDIT_NOTE":doc.kind==="DEBIT_NOTE";
   const balance=doc.status==="CANCELLED"||note&&doc.status==="POSTED"?zero():doc.total.sub(paid).sub(credited);
-  return {paid:paid.toFixed(4),credited:credited.toFixed(4),outstanding:balance.toFixed(4),settlementStatus:doc.status==="DRAFT"?"DRAFT":note?"APPLIED":balance.eq("0")?"PAID":paid.add(credited).gt("0")?"PART_PAID":"UNPAID"};
+  return {paid:paid.toFixed(4),credited:credited.toFixed(4),outstanding:balance.toFixed(4),settlementStatus:doc.status==="CANCELLED"?"CANCELLED":doc.status==="DRAFT"?"DRAFT":note?"APPLIED":balance.eq("0")?"PAID":paid.add(credited).gt("0")?"PART_PAID":"UNPAID"};
 }
 export async function priceLines(tx:Tx,companyId:string,lines:any[],resource:"invoices"|"bills") {
   let total=zero();

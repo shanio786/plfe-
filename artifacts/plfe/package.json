@@ -14,7 +14,8 @@
     "db:seed:accounts": "node scripts/seed.mjs accounts",
     "lock:standalone": "node scripts/update-npm-lock.mjs",
     "worker": "tsx scripts/worker.ts",
-    "test": "node scripts/test-phase1.mjs"
+    "test": "node scripts/test-phase1.mjs",
+    "test:phase2": "node scripts/test-phase2.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.8",

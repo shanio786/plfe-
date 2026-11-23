@@ -6,6 +6,7 @@ import {db} from "../lib/db";
 import {saveRecord} from "../modules/core/service";
 import {identity,listRecords,overview} from "../modules/core/queries";
 import {permissionCodes} from "../lib/role-templates";
+import {accountsReadPermissions} from "../modules/accounts/permissions";
 import {audit,redact} from "../lib/audit";
 import {tokenHash,checkPassword} from "../lib/auth";
 import {nextDocumentNumber} from "../lib/numbering";
@@ -160,7 +161,7 @@ test("An active branch cannot be disabled or archived around its approval rule, 
 });
 
 test("Delegated account management cannot reset or edit a stronger identity",async()=>{
-  const role=await saveRecord(owner,a,"roles",{name:"Limited account operator",permissionCodes:["core.company.read","core.branch.read","core.user.read","core.user.update","core.user.reset"]});
+  const role=await saveRecord(owner,a,"roles",{name:"Limited account operator",permissionCodes:["core.company.read","core.branch.read","core.user.read","core.user.update","core.user.reset",...accountsReadPermissions]});
   const operator=await saveRecord(owner,a,"users",{name:"Limited operator",email:`operator-${suffix.toLowerCase()}@test.invalid`,password:"Testing987654321",roleIds:[role.id]});
   await db.user.update({where:{id:operator.id},data:{mustChangePassword:false}});
   await assert.rejects(()=>saveRecord(operator,a,"users",{id:admin.id,operation:"reset-password",password:"Temporary123456789"}),(e:any)=>e.status===403);

@@ -74,15 +74,23 @@
   series and independent posting mappings. Existing credentials were not changed.
 - Added an explicit `--demo` seed, separate from ordinary initialization/startup.
   Both PLFE and ZAHRA HOME now have twenty clearly marked `TEST-P2` mixed posted
-  documents, including notes, partial/split payments, an advance application,
-  vouchers and an expense with a private attached test bill. Both seeded trial
-  balances agree. Cancellation/reversal acceptance remains in step 5.
+  documents, including notes, partial payments, an advance application, vouchers
+  and an expense with a private attached test bill. Both trial balances agree.
+- **Phase 2 step 5 complete:** sixteen automated accounting tests pass against
+  the isolated `plfe_test` database; all twenty-four Phase 1 regression tests
+  pass, and the optimized production build succeeds. Tests cover the Build-order
+  books, database-enforced commit-time balance, no-repeat numbers, company
+  isolation, allocation/advance handling and independent invoice reversal.
+- Added a dedicated `npm run test:phase2` guard that refuses non-`_test`
+  databases. No Owner password or real credential was used or reset.
+- Final browser login and signed-in Accounts pages could not be verified in this
+  run because the available automated-browser testing service was unavailable.
 
 ## Half-done
 
-- **Phase 2 Accounts core:** migration, services, screens and both-company seed
-  are implemented. Automated constraint/security/reversal checks, production
-  build and critical browser acceptance remain. See `docs/phase2-decisions.md`.
+- Phase 2 documentation and final handover are being finalized in
+  `docs/modules.md` and `docs/phase2-acceptance.md`. Automated checks and build
+  are complete; signed-in browser acceptance remains unverified.
 
 ## Deferred to Phase 9
 
@@ -94,10 +102,9 @@
 
 ## Next
 
-1. Verify balance constraints, numbering concurrency, company isolation, allocations,
-   cancellations and the twenty-document acceptance scenario.
-2. Update module/progress documentation and explain how to run Phase 2 acceptance.
-   Commit and push after each completed step. Stop before Phase 3.
+1. Commit and push the completed Phase 2 automated-test step.
+2. Finish/update module and acceptance documentation, then commit and push that
+   documentation step. Stop before Phase 3.
 
 ## Workflow for each completed step
 
