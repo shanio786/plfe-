@@ -1,3 +1,3 @@
-- [Approved foundation scope](foundation-scope.md) — Phase 1 approval overrides parts of the original plan; preserve portability and stop before Accounts.
+- [Approved phase scope](foundation-scope.md) — Phase 1 accepted; Phase 2 authorized. VPS deferred to Phase 9; do not ask for server details before then.
 - [Toolchain edge cases](toolchain-edge-cases.md) — Next.js source-root discovery, Orval names and standalone npm lock generation need care.
 - [Delegated identity safety](delegated-identity-safety.md) — Reset/edit operations are indirect grants; identity row locks must follow the Owner guard.

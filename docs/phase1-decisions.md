@@ -31,3 +31,9 @@ screens. They supersede conflicting passages in the original plan.
 - Deliver direct npm/Nginx operation and Dockerfile/Compose with app, worker,
   PostgreSQL 16 and Nginx in Phase 1.
 - No hosted-platform-specific authentication, database, storage or business runtime.
+
+## Subsequent user sign-off
+
+The user manually tested Phase 1 and confirmed that it passes. Phase 1 is complete.
+VPS deployment is moved to Phase 9; keep Dockerfile, Compose and standard npm
+operation working, but do not ask for server details until then.

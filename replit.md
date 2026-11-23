@@ -2,7 +2,10 @@
 
 Portable multi-company administration foundation. Read `docs/PLAN.md` and the
 approved overrides in `docs/phase1-decisions.md` before changing business rules.
-Only Phase 1 is currently authorized; do not start Accounts without approval.
+Phase 1 passed the user's manual acceptance and is complete. Phase 2 Accounts
+core is now authorized; do not start Phase 3 without approval. VPS deployment is
+deferred to Phase 9. Keep Docker/Compose and `npm start` working, but do not ask
+for server details before Phase 9. See `docs/phase2-decisions.md`.
 
 ## Required progress and GitHub workflow
 

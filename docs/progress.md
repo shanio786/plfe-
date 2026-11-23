@@ -2,6 +2,9 @@
 
 ## Done
 
+- **Phase 1 complete:** the user manually tested the foundation and confirmed it
+  passes. VPS deployment is no longer a Phase 1 acceptance gate.
+
 - Phase 1 foundation implemented in Next.js 15, TypeScript and PostgreSQL 16,
   using Prisma migrations and portable npm commands.
 - Company and branch administration; global users and Owners; company-specific
@@ -42,21 +45,29 @@
 
 ## Half-done
 
-- **Phase 1 acceptance:** implementation and local checks passed; user review,
-  manual acceptance and real-data sign-off remain.
-- **Deployment:** portable deployment files and instructions are supplied; Docker
-  deployment and the user's VPS have not been exercised or signed off.
-- **Pre-deployment sign-off:** in-workspace review/remediation and regressions are
-  complete; the separately requested external Claude Code review is still pending.
+- **Phase 2 Accounts core:** authorized and started. Migration, shared posting,
+  services, screens, both-company test seed and accounting acceptance remain to
+  be delivered. See `docs/phase2-decisions.md`.
+
+## Deferred to Phase 9
+
+- VPS configuration/deployment, server details, HTTPS, operational backups and
+  on-server acceptance. Keep Docker and standard npm operation portable meanwhile;
+  do not request server details before Phase 9.
+- The separate external pre-deployment Claude Code sign-off remains pending; it
+  is not represented as completed by the in-workspace review.
 
 ## Next
 
-1. Review the Phase 1 screens and complete the manual/real-data acceptance checks.
-2. Obtain the separate external Claude Code review and resolve any findings.
-3. Obtain the VPS hostname/deployment domain and arrange secure server access.
-   Configure the environment, database roles, private upload persistence,
-   HTTPS and backups; deploy and run the documented Phase 1 acceptance checklist.
-4. Resolve any Phase 1 acceptance findings. Stop before Accounts until authorized.
+1. Add the Phase 2-only migration with accounting dimensions, deferred balance
+   enforcement and immutable posted entries.
+2. Implement shared posting/reversals and authorized, transactional, audited services.
+3. Build Accounts screens using the shared Phase 1 table/forms.
+4. Seed the shared expo chart and clearly identified test data for both companies.
+5. Verify balance constraints, numbering concurrency, company isolation, allocations,
+   cancellations and the twenty-document acceptance scenario.
+6. Update module/progress documentation and explain how to run Phase 2 acceptance.
+   Commit and push after each completed step. Stop before Phase 3.
 
 ## Workflow for each completed step
 
