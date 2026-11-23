@@ -1,0 +1,50 @@
+"use client";
+import { Suspense, type ReactNode } from "react";
+import { BookCopy, Building, FileInput, FileOutput, Gauge, HandCoins, Layers3, ListTree, NotebookTabs, Scale, ScrollText, Settings2, UsersRound } from "lucide-react";
+import { L } from "@/lib/labels";
+import { Skeleton } from "@/components/ui/skeleton";
+import { AdminApp, type ShellNav } from "@/modules/core/components/admin-app";
+import { AccountsOverview } from "./overview";
+import { ChartSection, DepartmentsSection, JournalsSection, PartiesSection } from "./masters";
+import { DocumentsSection } from "./documents";
+import { PaymentsSection } from "./payments";
+import { VouchersSection } from "./vouchers";
+import { ReportSection } from "./reports";
+import { SettingsSection } from "./settings";
+
+const NAV: ShellNav = [
+  { group: "books", items: [{ key: "overview", icon: Gauge }, { key: "vouchers", icon: NotebookTabs }] },
+  { group: "documents", items: [{ key: "invoices", icon: FileOutput }, { key: "bills", icon: FileInput }, { key: "payments", icon: HandCoins }] },
+  { group: "reports", items: [{ key: "trial-balance", icon: Scale }, { key: "ledger", icon: ScrollText }, { key: "party-ledger", icon: BookCopy }] },
+  { group: "masters", items: [{ key: "chart", icon: ListTree }, { key: "parties", icon: UsersRound }, { key: "departments", icon: Building }, { key: "journals", icon: Layers3 }] },
+  { group: "setup", items: [{ key: "settings", icon: Settings2 }] },
+];
+const READ: Record<string, string> = {
+  overview: "accounts.report.read", chart: "accounts.chart.read", parties: "accounts.party.read", departments: "accounts.department.read", journals: "accounts.journal.read",
+  invoices: "accounts.invoice.read", bills: "accounts.bill.read", payments: "accounts.payment.read", vouchers: "accounts.entry.read",
+  "trial-balance": "accounts.report.read", ledger: "accounts.report.read", "party-ledger": "accounts.report.read", settings: "accounts.settings.read",
+};
+
+function render(section: string): ReactNode {
+  const body = (() => {
+    switch (section) {
+      case "overview": return <AccountsOverview />;
+      case "chart": return <ChartSection />;
+      case "parties": return <PartiesSection />;
+      case "departments": return <DepartmentsSection />;
+      case "journals": return <JournalsSection />;
+      case "invoices": return <DocumentsSection res="invoices" />;
+      case "bills": return <DocumentsSection res="bills" />;
+      case "payments": return <PaymentsSection />;
+      case "vouchers": return <VouchersSection />;
+      case "trial-balance": case "ledger": case "party-ledger": return <ReportSection report={section} />;
+      case "settings": return <SettingsSection />;
+      default: return null;
+    }
+  })();
+  return <Suspense fallback={<Skeleton className="h-80" />}>{body}</Suspense>;
+}
+
+export function AccountsApp({ company, section }: { company: string; section: string }) {
+  return <AdminApp company={company} section={section} module="accounts" nav={NAV} read={READ} labels={L.acc} render={render} />;
+}

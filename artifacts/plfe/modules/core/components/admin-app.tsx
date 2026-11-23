@@ -1,11 +1,11 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Building2, CalendarRange, Loader2, CheckCheck, ChevronsUpDown, FileStack, Hash, History, LayoutGrid, LogOut, Menu, MonitorSmartphone, Paperclip, Scale, ShieldCheck, Store, UserRound, Users, X,
+  BookOpenCheck, Building2, CalendarRange, Loader2, CheckCheck, ChevronsUpDown, FileStack, Hash, History, LayoutGrid, LogOut, Menu, MonitorSmartphone, Paperclip, Scale, ShieldCheck, Store, UserRound, Users, X,
 } from "lucide-react";
 import { api, type Identity, type RecordData } from "@/lib/client";
 import { profileSchema } from "@/modules/core/schema";
@@ -22,8 +22,10 @@ import {
   ApprovalRulesSection, ApprovalsSection, AttachmentsSection, AuditSection, BranchesSection, CompaniesSection, FiscalYearsSection, NumberingSection, RolesSection, SessionsSection, UsersSection,
 } from "./sections";
 
-type NavItem = { key: string; icon: ComponentType<{ className?: string }> };
-const NAV: { group: string; items: NavItem[] }[] = [
+export type NavItem = { key: string; icon: ComponentType<{ className?: string }> };
+export type ShellNav = { group: string; items: NavItem[] }[];
+const MODULES = [{ key: "admin", icon: ShieldCheck, home: "overview" }, { key: "accounts", icon: BookOpenCheck, home: "overview" }];
+const NAV: ShellNav = [
   { group: "workspace", items: [{ key: "overview", icon: LayoutGrid }, { key: "approvals", icon: CheckCheck }] },
   { group: "organisation", items: [{ key: "companies", icon: Building2 }, { key: "branches", icon: Store }, { key: "users", icon: Users }, { key: "roles", icon: ShieldCheck }] },
   { group: "controls", items: [{ key: "numbering", icon: Hash }, { key: "fiscal-years", icon: CalendarRange }, { key: "approval-rules", icon: Scale }, { key: "attachments", icon: Paperclip }] },
@@ -39,7 +41,19 @@ const READ: Record<string, string> = {
   "fiscal-years": "core.fiscal.read", "approval-rules": "core.approvalRule.read", approvals: "core.approval.read", attachments: "core.attachment.read", audit: "core.audit.read",
 };
 
-export function AdminApp({ company, section }: { company: string; section: string }) {
+export function AdminApp({ company, section, module = "admin", nav, read, labels, render }: {
+  company: string;
+  section: string;
+  module?: string;
+  nav?: ShellNav;
+  read?: Record<string, string>;
+  labels?: { nav: Record<string, any>; sub: Record<string, string> };
+  render?: (section: string) => ReactNode;
+}) {
+  const NAVX = nav ?? NAV;
+  const READX = read ?? READ;
+  const navLabel = (k: string): string => labels?.nav[k] ?? L.nav[k] ?? k;
+  const subLabel = (k: string): string | undefined => (labels ? labels.sub[k] : L.sub[k]);
   const router = useRouter();
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -88,7 +102,7 @@ export function AdminApp({ company, section }: { company: string; section: strin
 
   const current = identity.companies.find((c) => companySlug(c as any) === company || c.id === company) ?? overview?.company;
   const Section = SECTIONS[section];
-  const known = section === "overview" || section === "profile" || !!Section;
+  const known = render ? NAVX.some((g) => g.items.some((i) => i.key === section)) : section === "overview" || section === "profile" || !!Section;
   const pending = overview?.stats?.pendingApprovals ?? 0;
 
   const sidebar = (
@@ -116,30 +130,38 @@ export function AdminApp({ company, section }: { company: string; section: strin
           <DropdownMenuContent align="start" className="w-60">
             <DropdownMenuLabel className="text-xs text-muted-foreground">{L.nav.switchCompany}</DropdownMenuLabel>
             {identity.companies.map((c) => (
-              <DropdownMenuItem key={c.id} onSelect={() => router.push(`/${companySlug(c as any)}/admin/${section}`)} data-testid={`menu-company-${c.id}`}>
+              <DropdownMenuItem key={c.id} onSelect={() => router.push(`/${companySlug(c as any)}/${module}/${section}`)} data-testid={`menu-company-${c.id}`}>
                 <span className="font-mono text-xs text-muted-foreground w-10">{c.code}</span><span className="truncate">{c.name}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <div className="mx-3 grid grid-cols-2 gap-1 rounded-md bg-primary-foreground/[0.04] p-1">
+        {MODULES.map((m) => (
+          <Link key={m.key} href={`/${company}/${m.key}/${m.home}`} data-testid={`link-module-${m.key}`}
+            className={`flex items-center justify-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium transition-colors ${m.key === module ? "bg-accent text-accent-foreground" : "text-primary-foreground/65 hover:bg-primary-foreground/[0.08] hover:text-primary-foreground"}`}>
+            <m.icon className="h-3.5 w-3.5" />{L.nav.modules[m.key]}
+          </Link>
+        ))}
+      </div>
       <div className="flex-1 overflow-y-auto px-3 pb-4">
-        {NAV.map((g) => (
+        {NAVX.map((g) => (
           <div key={g.group} className="mt-4">
-            <div className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-foreground/40">{L.nav.groups[g.group]}</div>
-            {g.items.filter(({ key }) => !READ[key] || ctx.can(READ[key])).map(({ key, icon: Icon }) => {
+            <div className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-foreground/40">{L.nav.groups[g.group] ?? labels?.nav.groups?.[g.group] ?? g.group}</div>
+            {g.items.filter(({ key }) => !READX[key] || ctx.can(READX[key])).map(({ key, icon: Icon }) => {
               const active = key === section;
               return (
                 <Link
                   key={key}
-                  href={`/${company}/admin/${key}`}
+                  href={`/${company}/${module}/${key}`}
                   data-testid={`link-nav-${key}`}
                   className={`group relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors ${active ? "bg-primary-foreground/[0.1] text-primary-foreground" : "text-primary-foreground/65 hover:bg-primary-foreground/[0.05] hover:text-primary-foreground"}`}
                 >
                   {active && <span className="absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r bg-accent" />}
                   <Icon className={`h-4 w-4 ${active ? "text-accent" : ""}`} />
-                  <span className="truncate">{L.nav[key]}</span>
-                  {key === "approvals" && pending > 0 && <span className="ml-auto rounded bg-accent px-1.5 font-mono text-[10px] font-bold text-accent-foreground">{pending}</span>}
+                  <span className="truncate">{navLabel(key)}</span>
+                  {module === "admin" && key === "approvals" && pending > 0 && <span className="ml-auto rounded bg-accent px-1.5 font-mono text-[10px] font-bold text-accent-foreground">{pending}</span>}
                 </Link>
               );
             })}
@@ -171,19 +193,21 @@ export function AdminApp({ company, section }: { company: string; section: strin
           <header className="sticky top-0 z-30 flex items-center gap-3 border-b bg-background/85 px-4 py-3 backdrop-blur md:px-8">
             <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileNav(true)} data-testid="button-mobile-nav"><Menu /></Button>
             <div className="flex min-w-0 items-center gap-2 font-mono text-xs text-muted-foreground">
-              <span className="truncate">{current?.code ?? company}</span><span>/</span><span className="truncate text-foreground">{L.nav[section] ?? section}</span>
+              <span className="truncate">{current?.code ?? company}</span><span>/</span><span className="truncate">{L.nav.modules[module]}</span><span>/</span><span className="truncate text-foreground">{navLabel(section)}</span>
             </div>
             <div className="ml-auto font-mono text-[11px] text-muted-foreground">{overview?.fiscalYear ? `FY ${overview.fiscalYear.name}` : ""}</div>
           </header>
-          <div key={section} className="px-4 py-6 md:px-8 md:py-8 rise">
+          <div key={`${company}:${module}:${section}`} className="px-4 py-6 md:px-8 md:py-8 rise">
             <div className="mb-6">
-              <h1 className="font-display text-[28px] font-bold leading-tight tracking-tight" data-testid="text-section-title">{L.nav[section] ?? section}</h1>
-              {L.sub[section] && <p className="mt-1 text-sm text-muted-foreground">{L.sub[section]}</p>}
+              <h1 className="font-display text-[28px] font-bold leading-tight tracking-tight" data-testid="text-section-title">{navLabel(section)}</h1>
+              {subLabel(section) && <p className="mt-1 text-sm text-muted-foreground">{subLabel(section)}</p>}
             </div>
             {!known ? (
               <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground"><FileStack className="mx-auto mb-3 h-6 w-6" />{L.common.noResults}</div>
-            ) : READ[section] && !ctx.can(READ[section]) ? (
+            ) : READX[section] && !ctx.can(READX[section]) ? (
               <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground"><ShieldCheck className="mx-auto mb-3 h-6 w-6" />{L.actions.noAccessRead}</div>
+            ) : render ? (
+              render(section)
             ) : section === "overview" ? (
               <OverviewView overview={overview} error={ovError} retry={reloadOverview} />
             ) : section === "profile" ? (

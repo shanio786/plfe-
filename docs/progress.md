@@ -61,11 +61,19 @@
   general/account/party ledgers and posted-entry overview. High-value net cash/bank
   outflows through vouchers use the payment approval rule too. Application and
   shared-library type checks passed; runtime accounting acceptance is still pending.
+- **Phase 2 step 3 complete:** added the Accounts workspace in the accepted shared
+  shell, with chart/party/department/journal management, invoices/credit notes,
+  bills/debit notes, receipts/payments and advance allocation, manual vouchers,
+  company posting mappings, trial balance and ledgers.
+- The Accounts screens reuse the Phase 1 table/forms, keep money as decimal
+  strings, support source/reversal drill-through and scoped attachments, and
+  show independent-approval requests without pretending they have executed.
+  Static integration passed; live seeded-data/browser checks are scheduled below.
 
 ## Half-done
 
-- **Phase 2 Accounts core:** migration and services implemented. Screens are
-  implemented but not yet verified against seeded live data. Both-company test
+- **Phase 2 Accounts core:** migration, services and screens implemented but not
+  yet verified against seeded live data. Both-company test
   seed and accounting acceptance remain to
   be delivered. See `docs/phase2-decisions.md`.
 
@@ -79,11 +87,10 @@
 
 ## Next
 
-1. Commit the Accounts screens using the shared Phase 1 table/forms.
-2. Seed the shared expo chart and clearly identified test data for both companies.
-3. Verify balance constraints, numbering concurrency, company isolation, allocations,
+1. Seed the shared expo chart and clearly identified test data for both companies.
+2. Verify balance constraints, numbering concurrency, company isolation, allocations,
    cancellations and the twenty-document acceptance scenario.
-4. Update module/progress documentation and explain how to run Phase 2 acceptance.
+3. Update module/progress documentation and explain how to run Phase 2 acceptance.
    Commit and push after each completed step. Stop before Phase 3.
 
 ## Workflow for each completed step
