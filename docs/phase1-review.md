@@ -30,6 +30,8 @@ The initial audit reported seven High and two Moderate findings across Zod,
 PostCSS, Prisma configuration dependencies and ExcelJS's UUID dependency.
 
 - Upgraded the application's shared validation library to patched Zod 4.
+- Updated React Hook Form's resolver to the Zod 4-compatible release and added
+  a regression proving invalid inputs become field errors, not thrown exceptions.
 - Kept Next.js 15, Prisma 6 and ExcelJS as agreed. Their latest compatible parents
   still selected affected transitive packages, so applied targeted patched
   dependency overrides in both the workspace and standalone app manifests.
@@ -53,7 +55,7 @@ Scanner results are point-in-time evidence, not a guarantee against future issue
   `npm run build`, and `npm start`; its health endpoint returned 200. Generated
   verification files were removed afterward. The dependency scan of the final,
   complete standalone lock also reported zero findings.
-- **23 automated checks passed** in the isolated `_test` database, including new
+- **24 automated checks passed** in the isolated `_test` database, including new
   approval-bypass, delegated-account ceiling, concurrent-audit and environment
   allowlist regressions, plus real XLSX output.
 - The HTTP check starts the production app against that test database and checks

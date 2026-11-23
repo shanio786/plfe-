@@ -14,6 +14,8 @@ import {excelBuffer} from "../lib/excel";
 import {readFile} from "node:fs/promises";
 import {config} from "../lib/config";
 import {checkAuthHttp} from "./helpers/auth-http";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {loginSchema} from "../modules/core/schema";
 import type {Actor} from "../modules/core/model";
 
 let owner:Actor,admin:Actor,viewer:Actor;
@@ -208,3 +210,13 @@ test("Excel export writes a real workbook with the patched dependency tree",asyn
 test("HTTP login, password change, profile, company scope, reset revocation and logout",{
   timeout:30000,
 },async()=>checkAuthHttp(owner,a,b,viewerRole.id));
+
+test("Shared form resolver maps Zod 4 validation failures to field errors",async()=>{
+  const resolver=zodResolver(loginSchema);
+  const options={fields:{},shouldUseNativeValidation:false};
+  const invalid=await resolver({email:"not-an-email",password:""},undefined,options);
+  assert.ok(invalid.errors.email);
+  assert.ok(invalid.errors.password);
+  const valid=await resolver({email:"form@test.invalid",password:"FormFixture12345"},undefined,options);
+  assert.equal(Object.keys(valid.errors).length,0);
+});

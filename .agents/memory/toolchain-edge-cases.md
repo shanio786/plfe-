@@ -1,6 +1,6 @@
 ---
 name: Toolchain edge cases
-description: Subtle generation behavior encountered with Next.js 15 and Orval.
+description: Generation, standalone packaging and validation-version compatibility.
 ---
 
 Next.js 15 type generation can infer a `src/` source root merely because an empty
@@ -32,3 +32,13 @@ build therefore did not establish that a fresh VPS `npm ci` could work.
 **How to apply:** Use the isolated lock-generation command after dependency
 changes, reject external/link entries, and test clean npm packaging when release
 dependencies change. Keep pnpm and standalone npm overrides aligned.
+
+Upgrade the React Hook Form resolver alongside a move from Zod 3 to Zod 4.
+
+**Why:** An older resolver can accept valid inputs but fail to translate Zod 4
+validation errors into field errors. Server schema tests and a successful build
+alone do not test that client bridge.
+
+**How to apply:** Keep the resolver on a Zod 4-compatible release and test both
+valid submissions and invalid field-error results whenever validation versions
+change.
