@@ -1,3 +1,21 @@
+x-runtime-environment: &runtime-environment
+  NODE_ENV: production
+  DATABASE_URL: ${DATABASE_URL:?Set the limited runtime DATABASE_URL}
+  APP_URL: ${APP_URL:?Set the external HTTPS APP_URL}
+  APP_HOST: 0.0.0.0
+  PORT: "3000"
+  UPLOAD_DIR: /app/var/uploads
+  SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-__Host-plfe-session}
+  PASSWORD_MIN_LENGTH: ${PASSWORD_MIN_LENGTH:-10}
+  BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+  LOGIN_MAX_FAILURES: ${LOGIN_MAX_FAILURES:-5}
+  LOGIN_LOCK_MINUTES: ${LOGIN_LOCK_MINUTES:-15}
+  SESSION_IDLE_MINUTES: ${SESSION_IDLE_MINUTES:-240}
+  SESSION_MAX_MINUTES: ${SESSION_MAX_MINUTES:-840}
+  MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-10485760}
+  UPLOAD_ALLOWED_MIME: ${UPLOAD_ALLOWED_MIME:-application/pdf,image/jpeg,image/png,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain}
+  WORKER_CLEANUP_CRON: ${WORKER_CLEANUP_CRON:-*/15 * * * *}
+
 services:
   postgres:
     image: postgres:16-bookworm
@@ -16,11 +34,7 @@ services:
   app:
     build: .
     restart: unless-stopped
-    env_file: .env
-    environment:
-      NODE_ENV: production
-      PORT: "3000"
-      UPLOAD_DIR: /app/var/uploads
+    environment: *runtime-environment
     depends_on:
       postgres: {condition: service_healthy}
     volumes:
@@ -35,14 +49,25 @@ services:
     build: .
     restart: unless-stopped
     command: ["npm","run","worker"]
-    env_file: .env
-    environment:
-      NODE_ENV: production
-      UPLOAD_DIR: /app/var/uploads
+    environment: *runtime-environment
     depends_on:
       postgres: {condition: service_healthy}
     volumes:
       - uploads:/app/var/uploads
+  maintenance:
+    profiles: ["maintenance"]
+    build: .
+    command: ["npm","run","db:migrate"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${MIGRATION_DATABASE_URL:-}
+      SEED_OWNER_EMAIL: ${SEED_OWNER_EMAIL:-}
+      SEED_OWNER_NAME: ${SEED_OWNER_NAME:-}
+      SEED_OWNER_PASSWORD: ${SEED_OWNER_PASSWORD:-}
+      PASSWORD_MIN_LENGTH: ${PASSWORD_MIN_LENGTH:-10}
+      BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+    depends_on:
+      postgres: {condition: service_healthy}
   nginx:
     image: nginx:stable-bookworm
     restart: unless-stopped

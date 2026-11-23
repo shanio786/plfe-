@@ -12,9 +12,11 @@
 - Protected private-disk attachments, company-scoped Excel exports and audit logs.
 - Initialized PLFE and ZAHRA HOME, each with eleven roles, a Head Office, one
   financial year with twelve periods, approval defaults and invoice numbering.
-- Initialized one active Owner; the temporary password must change on first login.
+- Initialized one active Owner and confirmed the first-login password change
+  was completed.
 - Production build, standard `npm start`, worker startup and database health checks
-  passed locally. All seventeen service/database checks passed.
+  passed locally. All twenty-three automated checks passed, including an isolated
+  production HTTP authentication/profile/session journey.
 - Added Docker Compose, Nginx templates, deployment and backup guidance, the
   schema diagram and the Phase 1 acceptance checklist in `docs/setup.md`.
 - Documented the requirement to update this file, commit clearly and push to
@@ -24,6 +26,14 @@
 - Configured `origin` for `https://github.com/shanio786/plfe-`, targeting `main`,
   without replacing the workspace backup remote. The GitHub repository is public;
   only source code, documentation and non-secret example configuration belong there.
+- Completed the in-workspace pre-deployment review and fixed approval bypasses,
+  delegated account takeover, concurrent audit snapshots and runtime credential
+  exposure. See `docs/phase1-review.md` for evidence and remaining gates.
+- Patched dependency findings while retaining the agreed stack. The follow-up
+  dependency scan reported zero findings. Static analysis's dummy bcrypt-hash
+  match was reviewed as a false positive; the privacy scan reported no findings.
+- Added the operator-only maintenance environment and Compose profile, and
+  updated deployment commands to build the migration image before use.
 
 ## Half-done
 
@@ -31,12 +41,15 @@
   manual acceptance and real-data sign-off remain.
 - **Deployment:** portable deployment files and instructions are supplied; Docker
   deployment and the user's VPS have not been exercised or signed off.
+- **Pre-deployment sign-off:** in-workspace review/remediation and regressions are
+  complete; the separately requested external Claude Code review is still pending.
 
 ## Next
 
-1. Complete first-login password change and review the Phase 1 screens.
-2. Complete the independent pre-deployment code/security review.
-3. Configure the VPS environment, database roles, private upload persistence,
+1. Review the Phase 1 screens and complete the manual/real-data acceptance checks.
+2. Obtain the separate external Claude Code review and resolve any findings.
+3. Obtain the VPS hostname/deployment domain and arrange secure server access.
+   Configure the environment, database roles, private upload persistence,
    HTTPS and backups; deploy and run the documented Phase 1 acceptance checklist.
 4. Resolve any Phase 1 acceptance findings. Stop before Accounts until authorized.
 

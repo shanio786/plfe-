@@ -178,7 +178,7 @@ export function BranchesSection() {
     <>
       <Crud
         resource="branches" codes={{ create: "core.branch.create", update: "core.branch.update", delete: "core.branch.delete" }} schema={branchSchema}
-        fields={[{ name: "code", kind: "text" }, { name: "name", kind: "text" }, { name: "type", kind: "select", options: types }, { name: "phone", kind: "text" }, { name: "active", kind: "switch" }, { name: "address", kind: "textarea" }]}
+        fields={[{ name: "code", kind: "text" }, { name: "name", kind: "text" }, { name: "type", kind: "select", options: types }, { name: "phone", kind: "text" }, { name: "active", kind: "switch", createOnly: true }, { name: "address", kind: "textarea" }]}
         columns={[mono("code"), strong("name"), col("type", (r) => <Tag tone="teal">{L.branchTypes[r.type] ?? r.type}</Tag>), col("phone"), col("address", (r) => <span className="block max-w-[280px] truncate text-muted-foreground">{r.address || "—"}</span>, false), col("active", (r) => <ActiveTag v={r.active} />)]}
         statusOptions={[{ value: "active", label: L.common.active }, { value: "inactive", label: L.common.inactive }]}
         toForm={(r) => ({ ...pick(r, ["code", "name", "address", "phone"]), type: r?.type ?? "SHOWROOM", active: r?.active ?? true })}
@@ -186,6 +186,9 @@ export function BranchesSection() {
           label: L.actions.requestDeactivate, hidden: !r.active || !can("core.approval.create"),
           onClick: () => ask({ title: L.actions.requestDeactivate, description: `${r.code} · ${r.name}`, input: { label: L.actions.requestNote, type: "note", required: true }, confirmLabel: L.actions.requestDeactivate,
             onConfirm: async (note) => { await save(company, "approvals", { docType: "BRANCH", docId: r.id, action: "deactivate", requestNote: note }); notify(L.actions.requested); reload(); reloadOverview(); } }),
+        }, {
+          label: L.actions.activate, hidden: !!r.active || !can("core.branch.update"),
+          onClick: async () => { await save(company, "branches", { ...r, active: true }); notify(L.common.saved); reload(); reloadOverview(); },
         }]}
       />
       {dialog}

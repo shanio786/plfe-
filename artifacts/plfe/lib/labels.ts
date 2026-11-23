@@ -42,7 +42,7 @@ export const L = {
   approvalStatus: { PENDING: "Pending", APPROVED: "Approved", REJECTED: "Rejected", CANCELLED: "Cancelled" } as Record<string, string>,
   months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
   actions: {
-    requestDeactivate: "Request deactivation", requestNote: "Why should this branch be deactivated?", requested: "Deactivation request submitted for approval",
+    activate: "Activate", requestDeactivate: "Request deactivation", requestNote: "Why should this branch be deactivated?", requested: "Deactivation request submitted for approval",
     approve: "Approve", reject: "Reject", withdraw: "Withdraw", note: "Note", resetPassword: "Reset password", newPassword: "New password", reset: "Password reset",
     revoke: "Revoke", revoked: "Session revoked", current: "This device", upload: "Upload file", uploading: "Uploading", uploaded: "File uploaded", chooseFile: "Choose a file",
     uploadLogo: "Upload logo", logoSaved: "Logo updated", periods: "Periods", viewPeriods: "Periods", fyHint: "Saving generates twelve monthly periods automatically.",

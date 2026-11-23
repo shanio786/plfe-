@@ -28,14 +28,18 @@ they differ.
 3. Create a database owned by a **migration role**. Create a separate login role
    `plfe_app` for the running app. Use a PostgreSQL password policy appropriate to
    the server; do not put passwords into command history.
-4. Set `MIGRATION_DATABASE_URL` to the migration role's connection.
-   Set `DATABASE_URL` to the limited runtime role's connection.
+4. Set `DATABASE_URL` in the runtime `.env` to the limited runtime role.
+   Put `MIGRATION_DATABASE_URL` in a separate `.env.maintenance`, owned by the
+   deployment operator with mode 0600 and unreadable by the app's OS account.
+   Only `db:migrate` and `db:seed` load that operator file. Never place migration
+   credentials in the app/worker systemd environment or runtime `.env`.
    Leave `PLFE_DATABASE_URL` unset. It is only an optional local-preview override.
 5. Set `APP_URL` to the exact external HTTPS origin, e.g.
    `https://portal.example.com`. Set `UPLOAD_DIR` to an absolute directory owned by
    the app's OS user, with mode 0700.
-6. Set `SEED_OWNER_EMAIL`, `SEED_OWNER_NAME`, and `SEED_OWNER_PASSWORD` yourself.
-   The password must meet the configured policy. The seed never prints it.
+6. Put `SEED_OWNER_EMAIL`, `SEED_OWNER_NAME`, and `SEED_OWNER_PASSWORD` in that
+   operator-only `.env.maintenance`. The password must meet the configured policy.
+   The seed never prints it. Both environment files are ignored by Git.
 7. From the repository root:
 
    ```sh
@@ -60,8 +64,8 @@ they differ.
    than Docker's `http://app:3000`. Replace the example hostname/certificate paths.
    Only Nginx should be able to reach the application port.
 10. Log in with the seed Owner. Change the temporary password immediately.
-    Remove `SEED_OWNER_PASSWORD` and optional test passwords from the long-lived
-    runtime environment after seeding. Re-running the seed does not reset users.
+    Remove seed passwords from the operator file after seeding. They must never
+    be in the long-lived runtime environment. Re-running the seed does not reset users.
 
 `npm run build` does not need a reachable database. Migrations are explicit,
 committed SQL files, applied with `prisma migrate deploy`, never `db push`.
@@ -77,22 +81,27 @@ Use an unprivileged OS account; deny password SSH login and allow only ports
 ## Docker Compose deployment
 
 The Docker definition is a **VPS deliverable**; it is not required to develop the
-application. The four services are app, worker, postgres and nginx. PostgreSQL has
-no published host port, and uploads/database files use named volumes.
+application. The four long-lived services are app, worker, postgres and nginx.
+PostgreSQL has no published host port, and uploads/database files use named volumes.
+A one-shot `maintenance` profile runs migrations/seeding with operator credentials;
+it is not a runtime service. App/worker receive an explicit environment allowlist,
+not the complete host `.env`, so database-owner and seed credentials stay out.
 
 1. Install Docker and Compose on the VPS.
 2. Copy `.env.example` to `.env`. Set `POSTGRES_DB`, `POSTGRES_USER` and a strong
    `POSTGRES_PASSWORD`; use the same database password in the migration URL.
    Database hostnames in both database URLs must be `postgres`, not localhost.
-3. Set `DATABASE_URL` initially to the database-owner URL for bootstrap only,
-   `MIGRATION_DATABASE_URL` to the same URL, and fill Owner seed values.
+3. Set `MIGRATION_DATABASE_URL` to the database-owner URL, and fill Owner seed
+   values in the host `.env`. Set `DATABASE_URL` to the intended limited
+   `plfe_app` role's URL, even before that role exists. Never start app/worker
+   with the database-owner URL.
 4. Build, migrate and seed explicitly:
 
    ```sh
-   docker compose build
+   docker compose --profile maintenance build
    docker compose up -d postgres
-   docker compose run --rm app npm run db:migrate
-   docker compose run --rm app npm run db:seed
+   docker compose --profile maintenance run --rm maintenance npm run db:migrate
+   docker compose --profile maintenance run --rm maintenance npm run db:seed
    ```
 
 5. Create the `plfe_app` login through a private `psql` session:
@@ -104,7 +113,7 @@ no published host port, and uploads/database files use named volumes.
    Inside psql run `CREATE ROLE plfe_app LOGIN;`, then `\password plfe_app`
    (interactive prompt, not SQL containing a literal password), then apply
    `deploy/runtime-grants.sql`. If using non-default database/user names, replace
-   `plfe` accordingly. Change `DATABASE_URL` to this runtime role.
+   `plfe` accordingly. Confirm `DATABASE_URL` uses this limited role.
 6. The supplied `deploy/nginx.conf` is HTTP bootstrap configuration for ACME
    certificate issuance, **not a working HTTPS login deployment**. Obtain a
    certificate on the VPS with Let's Encrypt/Certbot webroot mode using
@@ -120,8 +129,11 @@ no published host port, and uploads/database files use named volumes.
    docker compose logs --tail=100 app worker nginx
    ```
 
-8. Verify HTTPS and sign in. Remove seed passwords from `.env`, then recreate
-   app/worker. Protect `.env` and certificates on disk. Do not expose PostgreSQL.
+8. Verify HTTPS and sign in. Remove seed passwords from the host `.env`.
+   Confirm app/worker environments contain no `MIGRATION_DATABASE_URL`,
+   `POSTGRES_PASSWORD` or seed passwords; inspect variable names only, never copy
+   their values into logs or tickets. Protect `.env` and certificates on disk.
+   Do not expose PostgreSQL.
 
 For updates use `sh deploy.sh`: fast-forward pull, build, migrations, restart.
 Apply runtime grants if new tables were added. Review migrations and back up
@@ -143,7 +155,10 @@ company isolation for reads/writes/exports/overview; role permissions; cross-com
 foreign keys; global Owner protection; soft-delete uniqueness; immutable and
 redacted audits; atomic rollback; session hashing/password policy; date ranges;
 concurrent numbering/rollback; exact decimal money; independent approval and
-withdrawal. Fixtures are synthetic and are not a substitute for the real-data
+withdrawal; branch edit/archive approval bypasses (including Owner); delegated
+account-management ceilings; consecutive concurrent audit before-images;
+runtime credential allowlisting; and real workbook generation.
+Fixtures are synthetic and are not a substitute for the real-data
 acceptance check below.
 
 ## Run the exact Phase 1 acceptance test
@@ -169,17 +184,26 @@ changing the URL. Every change shows in the audit log. The app runs on the VPS.�
    return 403. Use developer tools without copying session cookies to tickets/logs.
 7. As Owner or the PLFE administrator, create/edit a PLFE branch, add a role,
    change a role's permissions, assign/remove a company role, upload/download
-   an attachment, and delete a disposable branch. Confirm every business action
+   an attachment, and archive a disposable inactive branch. An active branch
+   must first be deactivated by an independent approver while its rule is active.
+   Confirm every business action
    appears in PLFE → Audit trail with actor, timestamp, record and before/after
    values. Owner → Login and system activity shows successful/failed logins.
 8. Request an active branch's deactivation. The requester must not approve it.
    A different authorized user approves; the branch becomes inactive and both
    the approval and target change are audited. Repeat with another branch and
    withdraw the request; the branch must remain active.
+   Try disabling Active through a direct branch save, and try archiving the
+   active branch: both must be denied while the approval rule is enabled,
+   including for Owner. Reactivation uses the explicit Activate action.
 9. Export a filtered list and open it with Excel. The workbook must contain only
    the company and filters selected. Verify paging/sorting/search after reload.
 10. Try to demote/deactivate the last active Owner: the system must reject it.
     Check that sessions show no raw token or token hash.
+    Give a limited operator only user-read/update/reset and basic company/branch
+    read permissions. It must not reset or edit a stronger administrator, Owner,
+    or a cross-company identity. A permitted reset of a weaker company-only user
+    must revoke that user's sessions and require a password change.
 11. Repeat steps 1–10 on the VPS using HTTPS after a fresh build, migration and
     restart. Confirm `npm start` and `npm run worker` work with no development
     tooling running, or perform the equivalent Compose check.

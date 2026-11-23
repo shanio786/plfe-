@@ -3,6 +3,7 @@ import {createHash,randomUUID} from "node:crypto";
 import path from "node:path";
 import {db} from "./db";
 import {config} from "./config";
+import {lockRow} from "./locking";
 import {companyScope} from "./permissions";
 import {audit} from "./audit";
 import {AppError} from "./errors";
@@ -61,9 +62,10 @@ export async function downloadFile(actor:Actor,code:string,id:string) {
 export async function removeFile(actor:Actor,code:string,id:string) {
   return db.$transaction(async tx=>{
     const company=await companyScope(tx,actor,code,"core.attachment.delete");
+    await lockRow(tx,"attachments",id,company.id);
     const before=await tx.attachment.findFirst({where:{id,companyId:company.id,deletedAt:null}});
     if(!before) throw new AppError(404,"Attachment not found");
-    if(company.logoAttachmentId===id) throw new AppError(409,"Remove the company logo reference first");
+    if(await tx.company.findFirst({where:{id:company.id,logoAttachmentId:id}})) throw new AppError(409,"Remove the company logo reference first");
     if(await tx.user.findFirst({where:{photoStorageKey:before.filePath,deletedAt:null}})) throw new AppError(409,"Remove the user photo reference first");
     const changed=await tx.attachment.update({where:{id},data:{deletedAt:new Date(),updatedBy:actor.id}});
     await audit(tx,actor,company.id,"CANCEL","attachments",id,before,changed);

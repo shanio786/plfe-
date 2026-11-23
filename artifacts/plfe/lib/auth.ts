@@ -5,6 +5,7 @@ import {db} from "./db";
 import {config} from "./config";
 import {AppError} from "./errors";
 import {audit} from "./audit";
+import {lockRow} from "./locking";
 import type {Actor} from "@/modules/core/model";
 import {loginSchema,passwordSchema} from "@/modules/core/schema";
 
@@ -23,7 +24,9 @@ export async function login(input:unknown) {
   const raw=randomBytes(32).toString("base64url");
   // Lock per normalized email serializes failed attempts without exposing email.
   const result=await db.$transaction(async tx=>{
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(71007100)`;
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${data.email},0))`;
+    await tx.$queryRaw`SELECT id FROM users WHERE email=${data.email} AND deleted_at IS NULL FOR UPDATE`;
     const user=await tx.user.findFirst({where:{email:data.email,deletedAt:null}});
     const valid=await bcrypt.compare(data.password,user?.passwordHash||"$2b$12$pGJavIjJnWYXvmnNWG4XwOa9C.fXeV1CXAS8kYKnM2Yk8OVWKvHhW");
     const actor=user?{...user,...meta}:null;
@@ -71,6 +74,8 @@ export async function changePassword(actor:Actor,input:unknown) {
   const data=passwordSchema.parse(input);checkPassword(data.newPassword);
   const hash=await bcrypt.hash(data.newPassword,config.bcryptRounds);
   await db.$transaction(async tx=>{
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(71007100)`;
+    await lockRow(tx,"users",actor.id);
     const u=await tx.user.findFirst({where:{id:actor.id,active:true,deletedAt:null}});
     if(!u || !await bcrypt.compare(data.currentPassword,u.passwordHash)) throw new AppError(400,"Current password is incorrect");
     if(await bcrypt.compare(data.newPassword,u.passwordHash)) throw new AppError(400,"Choose a different password");

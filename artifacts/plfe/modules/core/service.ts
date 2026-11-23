@@ -9,6 +9,7 @@ import {checkPassword} from "@/lib/auth";
 import {config} from "@/lib/config";
 import {roleTemplates,permissionCodes} from "@/lib/role-templates";
 import {money} from "@/lib/money";
+import {lockRow} from "@/lib/locking";
 import * as schemas from "./schema";
 import {resourceConfig} from "./queries";
 import type {Actor} from "./model";
@@ -47,6 +48,34 @@ async function setMemberships(tx:Prisma.TransactionClient,actor:Actor,companyId:
   await audit(tx,actor,companyId,"UPDATE","user_company_roles",userId,before,{roleIds:ids});
 }
 
+async function checkUserCeiling(tx:Prisma.TransactionClient,actor:Actor,companyId:string,target:Actor) {
+  if(actor.isOwner) return;
+  if(target.isOwner) throw new AppError(403,"Only an Owner may manage an Owner identity");
+  const own=new Set(await permissionsFor(tx,actor,companyId));
+  const targetPermissions=await permissionsFor(tx,target,companyId);
+  if(targetPermissions.some(code=>!own.has(code)))
+    throw new AppError(403,"You cannot manage a user with permissions you do not hold");
+}
+
+async function requireBranchApproval(tx:Prisma.TransactionClient,companyId:string,before:any) {
+  if(before?.active && await tx.approvalRule.findFirst({where:{companyId,docType:"BRANCH",action:"deactivate",active:true,deletedAt:null}}))
+    throw new AppError(409,"Request independent deactivation approval before disabling or archiving this branch");
+}
+
+export async function updateProfile(actor:Actor,code:string,input:unknown) {
+  const data=schemas.profileSchema.parse(input);
+  return db.$transaction(async tx=>{
+    // Same order as the last-Owner guard and all other identity writers.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(71007100)`;
+    const company=await companyScope(tx,actor,code);
+    await lockRow(tx,"users",actor.id);
+    const before=await tx.user.findUniqueOrThrow({where:{id:actor.id}});
+    const after=await tx.user.update({where:{id:actor.id},data:{...data,updatedBy:actor.id}});
+    await audit(tx,actor,company.id,"UPDATE","users",actor.id,before,after);
+    return redact(after);
+  });
+}
+
 export async function saveRecord(actor:Actor,code:string,resource:string,input:unknown) {
   if(!input || typeof input!=="object" || Array.isArray(input)) throw new AppError(400,"Invalid request");
   const raw=input as Record<string,any>;
@@ -54,11 +83,15 @@ export async function saveRecord(actor:Actor,code:string,resource:string,input:u
   if(!cfg || ["audit","permissions","periods","attachments"].includes(resource)) throw new AppError(405,"This resource is read-only here");
   if(raw.id && !/^[a-f0-9-]{36}$/i.test(raw.id)) throw new AppError(400,"Invalid record id");
   const operation=raw.operation||"save";
+  if(["delete","reset-password","revoke","approve","reject","withdraw"].includes(operation)&&!raw.id)
+    throw new AppError(400,"A record id is required");
   const action=operation==="delete"?"delete":operation==="reset-password"?"reset":operation==="revoke"?"revoke":resource==="approvals"&&raw.id?"approve":raw.id?"update":"create";
   const password=(resource==="users" && raw.password)?String(raw.password):null;
   if(password) checkPassword(password);
   const hash=password?await bcrypt.hash(password,config.bcryptRounds):null;
   return db.$transaction(async tx=>{
+    if(resource==="users"||resource==="memberships")
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(71007100)`;
     const current=await tx.user.findFirst({where:{id:actor.id,active:true,deletedAt:null}});
     if(!current) throw new AppError(401,"Sign in required");
     actor={...actor,isOwner:current.isOwner,mustChangePassword:current.mustChangePassword};
@@ -68,27 +101,33 @@ export async function saveRecord(actor:Actor,code:string,resource:string,input:u
     if(resource==="companies") {
       if(!raw.id) {if(!actor.isOwner) throw new AppError(403,"Only an Owner may create companies");return provisionCompany(tx,actor,raw);}
       if(!actor.isOwner && raw.id!==companyId) throw new AppError(403,"Company access denied");
+      await lockRow(tx,"companies",raw.id);
       before=await tx.company.findFirst({where:{id:raw.id,deletedAt:null}});
       if(!before) throw new AppError(404,"Company not found");
       const data=schemas.companySchema.parse({...before,...raw});
       if(!data.active && !actor.isOwner) throw new AppError(403,"Only an Owner may deactivate a company");
-      if(data.logoAttachmentId && !await tx.attachment.findFirst({where:{id:data.logoAttachmentId,companyId:before.id,deletedAt:null,docType:"COMPANY",docId:before.id,mime:{in:["image/png","image/jpeg"]}}})) throw new AppError(400,"Choose a company logo attachment");
+      if(data.logoAttachmentId) {
+        await lockRow(tx,"attachments",data.logoAttachmentId,before.id);
+        if(!await tx.attachment.findFirst({where:{id:data.logoAttachmentId,companyId:before.id,deletedAt:null,docType:"COMPANY",docId:before.id,mime:{in:["image/png","image/jpeg"]}}})) throw new AppError(400,"Choose a company logo attachment");
+      }
       after=await tx.company.update({where:{id:before.id},data:{...data,...meta}});
       await audit(tx,actor,before.id,"UPDATE","companies",before.id,before,after);return after;
     }
     if(resource==="users") {
       // Serialize global identity/Owner changes to protect the last active Owner.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(71007100)`;
+      if(raw.id) await lockRow(tx,"users",raw.id);
       if(raw.id) before=await tx.user.findFirst({where:{id:raw.id,deletedAt:null,...(actor.isOwner?{}:{memberships:{some:{companyId}}})}});
       if(raw.id && !before) throw new AppError(404,"User not found");
       if(operation==="reset-password") {
         if(!hash) throw new AppError(400,"A new temporary password is required");
         if(!actor.isOwner && (before.isOwner || await tx.userCompanyRole.findFirst({where:{userId:before.id,companyId:{not:companyId}}}))) throw new AppError(403,"An Owner must reset this global identity");
+        await checkUserCeiling(tx,actor,companyId,before);
         after=await tx.user.update({where:{id:before.id},data:{passwordHash:hash,mustChangePassword:true,passwordChangedAt:new Date(),failedLogins:0,lockedUntil:null,...meta}});
         await tx.session.deleteMany({where:{userId:before.id}});
         await audit(tx,actor,companyId,"PASSWORD_RESET","users",before.id);return redact(after);
       }
       const data=schemas.userSchema.parse({...before,...raw});
+      if(before) await checkUserCeiling(tx,actor,companyId,before);
       if((data.isOwner!==undefined && data.isOwner!==(before?.isOwner??false)) && !actor.isOwner) throw new AppError(403,"Only an Owner may change ownership");
       if(before && !actor.isOwner) {
         const other=await tx.userCompanyRole.findFirst({where:{userId:before.id,companyId:{not:companyId}}});
@@ -104,6 +143,7 @@ export async function saveRecord(actor:Actor,code:string,resource:string,input:u
       let photoFields:{photoStorageKey?:string|null}={};
       if(photoAttachmentId!==undefined) {
         if(!before) throw new AppError(400,"Save the user before uploading a photo");
+        if(photoAttachmentId) await lockRow(tx,"attachments",photoAttachmentId,companyId);
         const attachment=photoAttachmentId?await tx.attachment.findFirst({where:{id:photoAttachmentId,companyId,docType:"USER",docId:before.id,deletedAt:null,mime:{in:["image/png","image/jpeg"]}}}):null;
         if(photoAttachmentId&&!attachment) throw new AppError(400,"Choose a photo attached to this user");
         photoFields={photoStorageKey:attachment?.filePath??null};
@@ -130,6 +170,7 @@ export async function saveRecord(actor:Actor,code:string,resource:string,input:u
       await audit(tx,actor,companyId,before?"UPDATE":"CREATE","users",after.id,before,after);return redact(after);
     }
     if(resource==="sessions") {
+      if(raw.id) await lockRow(tx,"sessions",raw.id);
       const ownPermissions=await permissionsFor(tx,actor,companyId);
       before=await tx.session.findFirst({where:{id:raw.id,...(ownPermissions.includes("core.session.revoke")?{OR:[{userId:actor.id},{user:{memberships:{some:{companyId}}}}]}:{userId:actor.id})}});
       if(!before) throw new AppError(404,"Session not found");
@@ -140,6 +181,9 @@ export async function saveRecord(actor:Actor,code:string,resource:string,input:u
     if(resource==="approvals") return approvalAction(tx,actor,companyId,raw);
     const model=(tx as any)[cfg.model];
     if(raw.id) {
+      const tables={"branches":"branches","roles":"roles","memberships":"user_company_roles","numbering":"number_series","fiscal-years":"fiscal_years","approval-rules":"approval_rules"} as const;
+      const table=tables[resource as keyof typeof tables];
+      if(table) await lockRow(tx,table,raw.id,companyId);
       before=await model.findFirst({where:{id:raw.id,companyId,...(resource==="memberships"?{}:{deletedAt:null})}});
       if(!before) throw new AppError(404,"Record not found");
     }
@@ -148,6 +192,7 @@ export async function saveRecord(actor:Actor,code:string,resource:string,input:u
         if(before.userId===actor.id && !actor.isOwner) throw new AppError(409,"Ask another administrator to change your own access");
         await model.delete({where:{id:before.id}});
       } else {
+        if(resource==="branches") await requireBranchApproval(tx,companyId,before);
         if(resource==="roles" && await tx.userCompanyRole.count({where:{companyId,roleId:before.id}})) throw new AppError(409,"Remove user assignments before deleting this role");
         if(resource==="numbering" && await tx.sequence.count({where:{companyId,seriesId:before.id}})) throw new AppError(409,"A used number series cannot be deleted");
         await model.update({where:{id:before.id},data:{deletedAt:new Date(),...meta}});
@@ -156,6 +201,7 @@ export async function saveRecord(actor:Actor,code:string,resource:string,input:u
     }
     if(resource==="branches") {
       const data=schemas.branchSchema.parse(raw);
+      if(before && !data.active) await requireBranchApproval(tx,companyId,before);
       after=before?await tx.branch.update({where:{id:before.id},data:{...data,...meta,version:{increment:1}}}):await tx.branch.create({data:{...data,...createMeta}});
     } else if(resource==="roles") {
       const {permissionCodes:codes,...data}=schemas.roleSchema.parse(raw);

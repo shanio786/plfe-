@@ -1,2 +1,3 @@
 - [Approved foundation scope](foundation-scope.md) — Phase 1 approval overrides parts of the original plan; preserve portability and stop before Accounts.
 - [Toolchain edge cases](toolchain-edge-cases.md) — Next.js source-root discovery and Orval path/query type naming need care.
+- [Delegated identity safety](delegated-identity-safety.md) — Reset/edit operations are indirect grants; identity row locks must follow the Owner guard.

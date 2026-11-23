@@ -11,7 +11,7 @@ import {AppError} from "@/lib/errors";
 import {config} from "@/lib/config";
 import {excelBuffer} from "@/lib/excel";
 import {downloadFile,uploadFile,removeFile} from "@/lib/files";
-import {profileSchema} from "@/modules/core/schema";
+import {updateProfile} from "@/modules/core/service";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 function json(body:unknown,status=200){return NextResponse.json(redact(body),{status,headers:{"Cache-Control":"no-store"}});}
@@ -59,13 +59,7 @@ async function handle(req:NextRequest,context:{params:Promise<{path:string[]}>})
           return {id:user.id,name:user.name,email:user.email,phone:user.phone,photoAttachmentId:photo?.id,photoUrl:photo?`/api/plfe/${company}/files/${photo.id}`:null};
         });return json(profile);
       }
-      const data=profileSchema.parse(await req.json());
-      const changed=await db.$transaction(async tx=>{
-        const c=await companyScope(tx,actor,company);
-        const before=await tx.user.findUniqueOrThrow({where:{id:actor.id}});
-        const after=await tx.user.update({where:{id:actor.id},data:{...data,updatedBy:actor.id}});
-        await audit(tx,actor,c.id,"UPDATE","users",actor.id,before,after);return after;
-      });return json(changed);
+      return json(await updateProfile(actor,company,await req.json()));
     }
     if(resource==="files"&&id&&req.method==="GET") {
       const {record,bytes}=await downloadFile(actor,company,id);

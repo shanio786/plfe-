@@ -10,6 +10,10 @@ import {audit,redact} from "../lib/audit";
 import {tokenHash,checkPassword} from "../lib/auth";
 import {nextDocumentNumber} from "../lib/numbering";
 import {money} from "../lib/money";
+import {excelBuffer} from "../lib/excel";
+import {readFile} from "node:fs/promises";
+import {config} from "../lib/config";
+import {checkAuthHttp} from "./helpers/auth-http";
 import type {Actor} from "../modules/core/model";
 
 let owner:Actor,admin:Actor,viewer:Actor;
@@ -17,6 +21,7 @@ let first:any,second:any,branch:any,adminRole:any,viewerRole:any,fy:any;
 const suffix=randomUUID().slice(0,8).toUpperCase();
 const a=`A-${suffix}`,b=`B-${suffix}`;
 before(async()=>{
+  assert.ok(new URL(config.databaseUrl||"").pathname.endsWith("_test"),"Refusing fixture writes outside a dedicated _test database");
   const hash=await bcrypt.hash(randomBytes(24).toString("hex"),4);
   const u=await db.user.create({data:{name:"Acceptance Owner",email:`owner-${suffix.toLowerCase()}@test.invalid`,passwordHash:hash,isOwner:true,mustChangePassword:false}});
   owner=u;
@@ -74,7 +79,7 @@ test("Service and database protect the last active Owner",async()=>{
   await assert.rejects(()=>db.user.update({where:{id:owner.id},data:{active:false}}));
 });
 test("Soft-deleted keys can be reused; live duplicates are rejected",async()=>{
-  const item=await saveRecord(owner,a,"branches",{code:"REUSE",name:"Old",type:"OFFICE"});
+  const item=await saveRecord(owner,a,"branches",{code:"REUSE",name:"Old",type:"OFFICE",active:false});
   await assert.rejects(()=>saveRecord(owner,a,"branches",{code:"REUSE",name:"Duplicate",type:"OFFICE"}));
   await saveRecord(owner,a,"branches",{id:item.id,operation:"delete"});
   const replacement=await saveRecord(owner,a,"branches",{code:"REUSE",name:"New",type:"OFFICE"});
@@ -137,3 +142,69 @@ test("Requester may withdraw a pending request without approver permission",asyn
   assert.equal((await db.approval.findUniqueOrThrow({where:{id:request.id}})).status,"CANCELLED");
   assert.equal((await db.branch.findUniqueOrThrow({where:{id:target.id}})).active,true);
 });
+
+test("An active branch cannot be disabled or archived around its approval rule, even by Owner",async()=>{
+  const target=await saveRecord(owner,a,"branches",{code:"GUARDED",name:"Guarded branch",type:"OFFICE"});
+  for(const actor of [admin,owner]) {
+    await assert.rejects(()=>saveRecord(actor,a,"branches",{id:target.id,code:target.code,name:target.name,type:"OFFICE",active:false}),(e:any)=>e.status===409);
+    await assert.rejects(()=>saveRecord(actor,a,"branches",{id:target.id,operation:"delete"}),(e:any)=>e.status===409);
+  }
+  assert.equal((await db.branch.findUniqueOrThrow({where:{id:target.id}})).active,true);
+  assert.equal(await db.auditLog.count({where:{companyId:first.id,recordId:target.id,action:{in:["UPDATE","CANCEL"]}}}),0);
+  const request=await saveRecord(admin,a,"approvals",{docType:"BRANCH",docId:target.id,action:"deactivate"});
+  await saveRecord(owner,a,"approvals",{id:request.id,operation:"approve"});
+  await saveRecord(admin,a,"branches",{id:target.id,operation:"delete"});
+  assert.ok((await db.branch.findUniqueOrThrow({where:{id:target.id}})).deletedAt);
+});
+
+test("Delegated account management cannot reset or edit a stronger identity",async()=>{
+  const role=await saveRecord(owner,a,"roles",{name:"Limited account operator",permissionCodes:["core.company.read","core.branch.read","core.user.read","core.user.update","core.user.reset"]});
+  const operator=await saveRecord(owner,a,"users",{name:"Limited operator",email:`operator-${suffix.toLowerCase()}@test.invalid`,password:"Testing987654321",roleIds:[role.id]});
+  await db.user.update({where:{id:operator.id},data:{mustChangePassword:false}});
+  await assert.rejects(()=>saveRecord(operator,a,"users",{id:admin.id,operation:"reset-password",password:"Temporary123456789"}),(e:any)=>e.status===403);
+  await assert.rejects(()=>saveRecord(operator,a,"users",{id:admin.id,email:`taken-${suffix.toLowerCase()}@test.invalid`}),(e:any)=>e.status===403);
+  await assert.rejects(()=>saveRecord(operator,a,"users",{id:owner.id,operation:"reset-password",password:"Temporary123456789"}),(e:any)=>e.status===403||e.status===404);
+  assert.equal((await db.user.findUniqueOrThrow({where:{id:admin.id}})).mustChangePassword,false);
+  const target=await saveRecord(owner,a,"users",{name:"Resettable viewer",email:`resettable-${suffix.toLowerCase()}@test.invalid`,password:"Testing987654321",roleIds:[viewerRole.id]});
+  await db.session.create({data:{userId:target.id,tokenHash:tokenHash(randomBytes(32).toString("hex")),expiresAt:new Date(Date.now()+3600000)}});
+  await saveRecord(operator,a,"users",{id:target.id,operation:"reset-password",password:"Temporary123456789"});
+  assert.equal((await db.user.findUniqueOrThrow({where:{id:target.id}})).mustChangePassword,true);
+  assert.equal(await db.session.count({where:{userId:target.id}}),0);
+});
+
+test("Concurrent branch changes have complete, consecutive audit before-images",async()=>{
+  const target=await saveRecord(owner,a,"branches",{code:"CONCURRENT",name:"Before concurrent edits",type:"OFFICE"});
+  await Promise.all(Array.from({length:6},(_,i)=>saveRecord(owner,a,"branches",{id:target.id,code:target.code,name:`Concurrent edit ${i}`,type:"OFFICE",active:true})));
+  const logs=await db.auditLog.findMany({where:{companyId:first.id,recordId:target.id,action:"UPDATE"}});
+  const ordered=logs.map(log=>({before:log.beforeJson as any,after:log.afterJson as any})).sort((x,y)=>x.after.version-y.after.version);
+  assert.equal(ordered.length,6);
+  for(let i=0;i<ordered.length;i++) {
+    assert.equal(ordered[i].before.version,target.version+i);
+    assert.equal(ordered[i].after.version,target.version+i+1);
+    assert.equal(ordered[i].before.name,i===0?target.name:ordered[i-1].after.name);
+  }
+});
+
+test("Compose passes only the runtime allowlist to app and worker",async()=>{
+  const compose=await readFile(new URL("../../../docker-compose.yml",import.meta.url),"utf8");
+  const runtime=compose.split("\nservices:")[0];
+  assert.doesNotMatch(compose,/^\s+env_file:/m);
+  assert.doesNotMatch(runtime,/^\s+(POSTGRES_PASSWORD|MIGRATION_DATABASE_URL|SEED_OWNER_PASSWORD|SEED_TEST_PASSWORD):/m);
+  for(const service of ["app","worker"]) {
+    const block=compose.match(new RegExp(`\\n  ${service}:\\n([\\s\\S]*?)(?=\\n  [a-z]+:|\\nvolumes:)`))?.[1];
+    assert.ok(block);
+    assert.match(block,/environment: \*runtime-environment/);
+  }
+  assert.match(compose,/profiles: \["maintenance"\]/);
+});
+
+test("Excel export writes a real workbook with the patched dependency tree",async()=>{
+  const bytes=await excelBuffer([{company:first.code,amount:"12.3456"}],"Acceptance");
+  assert.equal(bytes[0],0x50);
+  assert.equal(bytes[1],0x4b);
+  assert.ok(bytes.length>1000);
+});
+
+test("HTTP login, password change, profile, company scope, reset revocation and logout",{
+  timeout:30000,
+},async()=>checkAuthHttp(owner,a,b,viewerRole.id));
