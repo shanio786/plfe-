@@ -1,3 +1,4 @@
+import {accountsPermissions,accountsReadPermissions} from "@/modules/accounts/permissions";
 // One source template, copied into each company. Later module permissions are
 // introduced with those modules, never granted through wildcards.
 export const permissionCodes = [
@@ -11,13 +12,15 @@ export const permissionCodes = [
   "core.approvalRule.read","core.approvalRule.create","core.approvalRule.update",
   "core.approval.read","core.approval.create","core.approval.approve",
   "core.attachment.read","core.attachment.create","core.attachment.delete",
-  "core.audit.read","core.session.read","core.session.revoke"
+  "core.audit.read","core.session.read","core.session.revoke",...accountsPermissions
 ];
 const readOnly = ["core.company.read","core.branch.read"];
 export const roleTemplates = [
   {name:"Owner",description:"Full company administration. Global ownership requires the Owner flag.",permissions:permissionCodes},
   {name:"Admin",description:"Company users, roles and settings.",permissions:permissionCodes.filter(p=>p!=="core.company.create")},
-  ...["Accountant","Event Manager","Sales Executive","HR","Showroom Manager","Cashier","Gate Staff","Web Editor","Viewer"].map(name=>({
+  {name:"Accountant",description:"Full Accounts except closing periods.",permissions:[...readOnly,...accountsPermissions,"core.approval.read","core.approval.create","core.attachment.read","core.attachment.create","core.attachment.delete"]},
+  {name:"Viewer",description:"Read-only reports and their accounting source documents.",permissions:[...readOnly,...accountsReadPermissions]},
+  ...["Event Manager","Sales Executive","HR","Showroom Manager","Cashier","Gate Staff","Web Editor"].map(name=>({
     name,description:"Operational permissions are added when the relevant module is built.",permissions:readOnly
   }))
 ];

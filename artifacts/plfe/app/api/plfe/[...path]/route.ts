@@ -12,6 +12,9 @@ import {config} from "@/lib/config";
 import {excelBuffer} from "@/lib/excel";
 import {downloadFile,uploadFile,removeFile} from "@/lib/files";
 import {updateProfile} from "@/modules/core/service";
+import {getAccountRecord,listAccounts} from "@/modules/accounts/queries";
+import {accountsOverview,accountsReport} from "@/modules/accounts/reports";
+import {saveAccountRecord} from "@/modules/accounts/service";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 function json(body:unknown,status=200){return NextResponse.json(redact(body),{status,headers:{"Cache-Control":"no-store"}});}
@@ -49,6 +52,17 @@ async function handle(req:NextRequest,context:{params:Promise<{path:string[]}>})
     if(path[0]==="password" && req.method==="POST") return json(await changePassword(await requireActor(true),await req.json()));
     const actor=await requireActor();
     const [company,resource,id]=path;
+    if(resource==="accounts") {
+      const section=path[2]??"overview",recordId=path[3];
+      if(req.method==="POST")return json(await saveAccountRecord(actor,company,section,await req.json()));
+      if(req.method!=="GET")throw new AppError(405,"Method not allowed");
+      const params=Object.fromEntries(req.nextUrl.searchParams),exporting=params.export==="xlsx";
+      if(section==="overview")return json(await accountsOverview(actor,company));
+      if(section!=="reports"&&recordId)return json(await getAccountRecord(actor,company,section,recordId));
+      const result=section==="reports"?await accountsReport(actor,company,recordId,params,exporting):await listAccounts(actor,company,section,params,exporting);
+      if(exporting)return new NextResponse(new Uint8Array(await excelBuffer(result.rows,section==="reports"?recordId:section)),{headers:{"Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","Content-Disposition":`attachment; filename="accounts-${section}.xlsx"`,"Cache-Control":"private, no-store"}});
+      return json(result);
+    }
     if(resource==="overview"&&req.method==="GET") return json(await overview(actor,company));
     if(resource==="profile") {
       if(req.method==="GET") {

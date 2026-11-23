@@ -3,6 +3,7 @@ x-runtime-environment: &runtime-environment
   DATABASE_URL: ${DATABASE_URL:?Set the limited runtime DATABASE_URL}
   APP_URL: ${APP_URL:?Set the external HTTPS APP_URL}
   APP_HOST: 0.0.0.0
+  ACCOUNTING_TIMEZONE: ${ACCOUNTING_TIMEZONE:-Asia/Karachi}
   PORT: "3000"
   UPLOAD_DIR: /app/var/uploads
   SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-__Host-plfe-session}

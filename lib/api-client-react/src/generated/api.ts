@@ -27,7 +27,9 @@ import type {
   FoundationInput,
   FoundationPage,
   FoundationRecord,
+  GetAccountsReportParams,
   HealthStatus,
+  ListAccountsRecordsParams,
   LoginInput,
   SessionInfo
 } from './api.schemas';
@@ -589,4 +591,436 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getSaveFoundationMutationOptions(options), queryClient);
     }
+
+export const getListAccountsRecordsUrl = (company: string,
+    accountResource: string,
+    params?: ListAccountsRecordsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/plfe/${company}/accounts/${accountResource}?${stringifiedParams}` : `/api/plfe/${company}/accounts/${accountResource}`
+}
+
+export const listAccountsRecords = async (company: string,
+    accountResource: string,
+    params?: ListAccountsRecordsParams, options?: Parameters<typeof customFetch>[1]): Promise<FoundationPage> => {
+
+  return customFetch<FoundationPage>(getListAccountsRecordsUrl(company,accountResource,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAccountsRecordsQueryKey = (company: string,
+    accountResource: string,
+    params?: ListAccountsRecordsParams,) => {
+    return [
+    `/api/plfe/${company}/accounts/${accountResource}`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAccountsRecordsQueryOptions = <TData = Awaited<ReturnType<typeof listAccountsRecords>>, TError = ErrorType<unknown>>(company: string,
+    accountResource: string,
+    params?: ListAccountsRecordsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAccountsRecords>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAccountsRecordsQueryKey(company,accountResource,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAccountsRecords>>> = ({ signal }) => listAccountsRecords(company,accountResource,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: company !== null && company !== undefined && accountResource !== null && accountResource !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAccountsRecords>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListAccountsRecordsQueryResult = NonNullable<Awaited<ReturnType<typeof listAccountsRecords>>>
+export type ListAccountsRecordsQueryError = ErrorType<unknown>
+
+
+export function useListAccountsRecords<TData = Awaited<ReturnType<typeof listAccountsRecords>>, TError = ErrorType<unknown>>(
+ company: string,
+    accountResource: string,
+    params: undefined |  ListAccountsRecordsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAccountsRecords>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAccountsRecords>>,
+          TError,
+          Awaited<ReturnType<typeof listAccountsRecords>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAccountsRecords<TData = Awaited<ReturnType<typeof listAccountsRecords>>, TError = ErrorType<unknown>>(
+ company: string,
+    accountResource: string,
+    params?: ListAccountsRecordsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAccountsRecords>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAccountsRecords>>,
+          TError,
+          Awaited<ReturnType<typeof listAccountsRecords>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAccountsRecords<TData = Awaited<ReturnType<typeof listAccountsRecords>>, TError = ErrorType<unknown>>(
+ company: string,
+    accountResource: string,
+    params?: ListAccountsRecordsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAccountsRecords>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useListAccountsRecords<TData = Awaited<ReturnType<typeof listAccountsRecords>>, TError = ErrorType<unknown>>(
+ company: string,
+    accountResource: string,
+    params?: ListAccountsRecordsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAccountsRecords>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListAccountsRecordsQueryOptions(company,accountResource,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveAccountsRecordUrl = (company: string,
+    accountResource: string,) => {
+
+
+
+
+  return `/api/plfe/${company}/accounts/${accountResource}`
+}
+
+export const saveAccountsRecord = async (company: string,
+    accountResource: string,
+    foundationInput: FoundationInput, options?: Parameters<typeof customFetch>[1]): Promise<FoundationRecord> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<FoundationRecord>(getSaveAccountsRecordUrl(company,accountResource),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(foundationInput)
+  }
+);}
+
+
+
+
+
+export const getSaveAccountsRecordMutationKey = () => ['saveAccountsRecord'] as const;
+
+export const getSaveAccountsRecordMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAccountsRecord>>, TError,SaveAccountsRecordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveAccountsRecord>>, TError,SaveAccountsRecordMutationVariables, TContext> => {
+
+const mutationKey = getSaveAccountsRecordMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveAccountsRecord>>, SaveAccountsRecordMutationVariables> = (props) => {
+          const {company,accountResource,data} = props ?? {};
+
+          return  saveAccountsRecord(company,accountResource,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveAccountsRecordMutationResult = NonNullable<Awaited<ReturnType<typeof saveAccountsRecord>>>
+    export type SaveAccountsRecordMutationBody = BodyType<FoundationInput>
+    export type SaveAccountsRecordMutationError = ErrorType<unknown>
+    export type SaveAccountsRecordMutationVariables = {company: string;accountResource: string;data: BodyType<FoundationInput>}
+
+    export const useSaveAccountsRecord = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveAccountsRecord>>, TError,SaveAccountsRecordMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof saveAccountsRecord>>,
+        TError,
+        SaveAccountsRecordMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveAccountsRecordMutationOptions(options), queryClient);
+    }
+
+export const getGetAccountsRecordUrl = (company: string,
+    accountResource: string,
+    accountRecordId: string,) => {
+
+
+
+
+  return `/api/plfe/${company}/accounts/${accountResource}/${accountRecordId}`
+}
+
+export const getAccountsRecord = async (company: string,
+    accountResource: string,
+    accountRecordId: string, options?: Parameters<typeof customFetch>[1]): Promise<FoundationRecord> => {
+
+  return customFetch<FoundationRecord>(getGetAccountsRecordUrl(company,accountResource,accountRecordId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAccountsRecordQueryKey = (company: string,
+    accountResource: string,
+    accountRecordId: string,) => {
+    return [
+    `/api/plfe/${company}/accounts/${accountResource}/${accountRecordId}`
+    ] as const;
+    }
+
+
+export const getGetAccountsRecordQueryOptions = <TData = Awaited<ReturnType<typeof getAccountsRecord>>, TError = ErrorType<unknown>>(company: string,
+    accountResource: string,
+    accountRecordId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAccountsRecord>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAccountsRecordQueryKey(company,accountResource,accountRecordId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccountsRecord>>> = ({ signal }) => getAccountsRecord(company,accountResource,accountRecordId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: company !== null && company !== undefined && accountResource !== null && accountResource !== undefined && accountRecordId !== null && accountRecordId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAccountsRecord>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAccountsRecordQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountsRecord>>>
+export type GetAccountsRecordQueryError = ErrorType<unknown>
+
+
+export function useGetAccountsRecord<TData = Awaited<ReturnType<typeof getAccountsRecord>>, TError = ErrorType<unknown>>(
+ company: string,
+    accountResource: string,
+    accountRecordId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAccountsRecord>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAccountsRecord>>,
+          TError,
+          Awaited<ReturnType<typeof getAccountsRecord>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAccountsRecord<TData = Awaited<ReturnType<typeof getAccountsRecord>>, TError = ErrorType<unknown>>(
+ company: string,
+    accountResource: string,
+    accountRecordId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAccountsRecord>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAccountsRecord>>,
+          TError,
+          Awaited<ReturnType<typeof getAccountsRecord>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAccountsRecord<TData = Awaited<ReturnType<typeof getAccountsRecord>>, TError = ErrorType<unknown>>(
+ company: string,
+    accountResource: string,
+    accountRecordId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAccountsRecord>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetAccountsRecord<TData = Awaited<ReturnType<typeof getAccountsRecord>>, TError = ErrorType<unknown>>(
+ company: string,
+    accountResource: string,
+    accountRecordId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAccountsRecord>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAccountsRecordQueryOptions(company,accountResource,accountRecordId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAccountsReportUrl = (company: string,
+    reportName: string,
+    params?: GetAccountsReportParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/plfe/${company}/accounts/reports/${reportName}?${stringifiedParams}` : `/api/plfe/${company}/accounts/reports/${reportName}`
+}
+
+export const getAccountsReport = async (company: string,
+    reportName: string,
+    params?: GetAccountsReportParams, options?: Parameters<typeof customFetch>[1]): Promise<FoundationPage> => {
+
+  return customFetch<FoundationPage>(getGetAccountsReportUrl(company,reportName,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAccountsReportQueryKey = (company: string,
+    reportName: string,
+    params?: GetAccountsReportParams,) => {
+    return [
+    `/api/plfe/${company}/accounts/reports/${reportName}`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAccountsReportQueryOptions = <TData = Awaited<ReturnType<typeof getAccountsReport>>, TError = ErrorType<unknown>>(company: string,
+    reportName: string,
+    params?: GetAccountsReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAccountsReport>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAccountsReportQueryKey(company,reportName,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccountsReport>>> = ({ signal }) => getAccountsReport(company,reportName,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: company !== null && company !== undefined && reportName !== null && reportName !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAccountsReport>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAccountsReportQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountsReport>>>
+export type GetAccountsReportQueryError = ErrorType<unknown>
+
+
+export function useGetAccountsReport<TData = Awaited<ReturnType<typeof getAccountsReport>>, TError = ErrorType<unknown>>(
+ company: string,
+    reportName: string,
+    params: undefined |  GetAccountsReportParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAccountsReport>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAccountsReport>>,
+          TError,
+          Awaited<ReturnType<typeof getAccountsReport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAccountsReport<TData = Awaited<ReturnType<typeof getAccountsReport>>, TError = ErrorType<unknown>>(
+ company: string,
+    reportName: string,
+    params?: GetAccountsReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAccountsReport>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAccountsReport>>,
+          TError,
+          Awaited<ReturnType<typeof getAccountsReport>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAccountsReport<TData = Awaited<ReturnType<typeof getAccountsReport>>, TError = ErrorType<unknown>>(
+ company: string,
+    reportName: string,
+    params?: GetAccountsReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAccountsReport>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetAccountsReport<TData = Awaited<ReturnType<typeof getAccountsReport>>, TError = ErrorType<unknown>>(
+ company: string,
+    reportName: string,
+    params?: GetAccountsReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAccountsReport>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAccountsReportQueryOptions(company,reportName,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

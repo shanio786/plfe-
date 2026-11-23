@@ -1,0 +1,23 @@
+import {z} from "zod";
+
+const text=z.string().trim().min(1).max(200);
+const optional=z.string().trim().max(2000).nullish().transform(v=>v||null);
+const uuid=z.string().uuid();
+const dimension=uuid.nullish().transform(v=>v||null);
+export const amount=z.string().regex(/^\d{1,14}(\.\d{1,4})?$/,"Use a positive decimal with at most four decimal places");
+const day=z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+export const tags={departmentId:dimension,eventId:dimension,outletId:dimension};
+export const accountSchema=z.object({code:text,name:text,type:z.enum(["ASSET","LIABILITY","EQUITY","INCOME","EXPENSE"]),parentId:dimension,isGroup:z.boolean().default(false),isBank:z.boolean().default(false),isCash:z.boolean().default(false),active:z.boolean().default(true)});
+export const departmentSchema=z.object({code:text,name:text,active:z.boolean().default(true)});
+export const journalSchema=z.object({code:text,name:text,type:z.enum(["SALES","PURCHASE","BANK","CASH","GENERAL"]),active:z.boolean().default(true)});
+export const partySchema=z.object({code:text,name:text,companyName:optional,phone:optional,email:z.union([z.email(),z.literal("")]).nullish().transform(v=>v||null),city:optional,ntn:optional,address:optional,creditDays:z.coerce.number().int().min(0).max(3650).default(0),isCustomer:z.boolean().default(true),isSupplier:z.boolean().default(false),isExhibitor:z.boolean().default(false),isSponsor:z.boolean().default(false),isStaff:z.boolean().default(false),active:z.boolean().default(true),openingBalance:amount.default("0.0000"),openingSide:z.enum(["RECEIVABLE","PAYABLE"]).default("RECEIVABLE")});
+export const documentLineSchema=z.object({accountId:uuid,description:text,qty:amount.default("1.0000"),rate:amount,...tags});
+export const invoiceSchema=z.object({kind:z.enum(["INVOICE","CREDIT_NOTE"]).default("INVOICE"),partyId:uuid,date:day,dueDate:day,originalId:dimension,narration:optional,lines:z.array(documentLineSchema).min(1).max(200)});
+export const billSchema=invoiceSchema.extend({kind:z.enum(["BILL","DEBIT_NOTE"]).default("BILL")});
+export const ledgerLineSchema=z.object({accountId:uuid,debit:amount.default("0.0000"),credit:amount.default("0.0000"),partyId:dimension,memo:optional,...tags});
+export const entrySchema=z.object({journalId:uuid,kind:z.enum(["JOURNAL","CASH","BANK","TRANSFER","EXPENSE"]).default("JOURNAL"),date:day,narration:optional,lines:z.array(ledgerLineSchema).min(2).max(200)});
+export const allocationSchema=z.object({invoiceId:dimension,billId:dimension,amount});
+export const paymentSchema=z.object({direction:z.enum(["RECEIPT","PAYMENT"]),method:z.enum(["CASH","BANK"]),partyId:uuid,date:day,settlementAccountId:uuid,amount,narration:optional,departmentId:dimension,allocations:z.array(allocationSchema).max(200).default([])});
+export const settingsSchema=z.object({receivableAccountId:uuid,payableAccountId:uuid,openingEquityAccountId:uuid,salesJournalId:uuid,purchaseJournalId:uuid,generalJournalId:uuid,cashJournalId:uuid,bankJournalId:uuid});
+export const accountResources=["chart","parties","departments","journals","invoices","bills","payments","entries","settings"] as const;
+export type AccountResource=typeof accountResources[number];

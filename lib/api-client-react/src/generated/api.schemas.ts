@@ -29,3 +29,22 @@ export interface FoundationPage {
   pageSize: number;
 }
 
+export type ListAccountsRecordsParams = {
+search?: string;
+status?: string;
+page?: number;
+pageSize?: number;
+sort?: string;
+direction?: string;
+};
+
+export type GetAccountsReportParams = {
+from?: string;
+to?: string;
+accountId?: string;
+partyId?: string;
+departmentId?: string;
+page?: number;
+pageSize?: number;
+};
+

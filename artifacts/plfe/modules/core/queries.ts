@@ -80,6 +80,11 @@ export async function listRecords(actor:Actor,code:string,resource:string,raw:Re
     if(resource==="roles") include.grants=true;
     if(resource==="numbering") include.sequences={where:{companyId:company.id,deletedAt:null}};
     if(resource==="approvals"){include.requester={select:{name:true}};include.decider={select:{name:true}};}
+    if(resource==="attachments") {
+      const types=["COMPANY","BRANCH","USER",...Object.entries({INVOICE:"invoice",BILL:"bill",PAYMENT:"payment",ENTRY:"entry"}).filter(([,object])=>actor.isOwner||permissions.includes(`accounts.${object}.read`)).map(([type])=>type)];
+      where.docType=raw.docType&&types.includes(raw.docType)?raw.docType:{in:raw.docType?[]:types};
+      if(raw.docId)where.docId=raw.docId;
+    }
     if(resource==="audit") include.user={select:{name:true}};
     if(params.search && cfg.search.length) where.OR=cfg.search.map(field=>({[field]:{contains:params.search,mode:"insensitive"}}));
     if(resource==="memberships"&&params.search) where.OR=[{user:{name:{contains:params.search,mode:"insensitive"}}},{role:{name:{contains:params.search,mode:"insensitive"}}}];

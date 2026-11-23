@@ -13,6 +13,8 @@ import {lockRow} from "@/lib/locking";
 import * as schemas from "./schema";
 import {resourceConfig} from "./queries";
 import type {Actor} from "./model";
+import {executeAccountingApproval} from "@/modules/accounts/service";
+import {initializeAccounts} from "@/modules/accounts/bootstrap";
 
 export async function provisionCompany(tx:Prisma.TransactionClient,actor:Actor,input:unknown) {
   const data=schemas.companySchema.parse(input);
@@ -27,6 +29,7 @@ export async function provisionCompany(tx:Prisma.TransactionClient,actor:Actor,i
     const rule=await tx.approvalRule.create({data:{companyId:c.id,docType:docType!,action:action!,thresholdAmount:thresholdAmount?money(thresholdAmount):null,approverPermissionCode:"core.approval.approve",createdBy:actor.id,updatedBy:actor.id}});
     await audit(tx,actor,c.id,"CREATE","approval_rules",rule.id,null,rule);
   }
+  await initializeAccounts(tx,actor,c.id);
   return c;
 }
 
@@ -273,12 +276,13 @@ async function approvalAction(tx:Prisma.TransactionClient,actor:Actor,companyId:
   const snapshot=approval.ruleSnapshot as {approverPermissionCode:string};
   if(!permissions.includes(snapshot.approverPermissionCode)) throw new AppError(403,"Approver permission required");
   if(raw.operation==="approve") {
-    if(approval.docType!=="BRANCH"||approval.action!=="deactivate") throw new AppError(400,"Document handler not available");
-    await tx.$executeRaw`SELECT id FROM branches WHERE id=${approval.docId}::uuid AND company_id=${companyId}::uuid FOR UPDATE`;
-    const before=await tx.branch.findFirst({where:{id:approval.docId,companyId,deletedAt:null,version:approval.targetVersion}});
-    if(!before) throw new AppError(409,"The target changed; withdraw and submit a new request");
-    const changed=await tx.branch.update({where:{id:before.id},data:{active:false,version:{increment:1},updatedBy:actor.id}});
-    await audit(tx,actor,companyId,"UPDATE","branches",before.id,before,changed);
+    if(approval.docType==="BRANCH"&&approval.action==="deactivate") {
+      await tx.$executeRaw`SELECT id FROM branches WHERE id=${approval.docId}::uuid AND company_id=${companyId}::uuid FOR UPDATE`;
+      const before=await tx.branch.findFirst({where:{id:approval.docId,companyId,deletedAt:null,version:approval.targetVersion}});
+      if(!before) throw new AppError(409,"The target changed; withdraw and submit a new request");
+      const changed=await tx.branch.update({where:{id:before.id},data:{active:false,version:{increment:1},updatedBy:actor.id}});
+      await audit(tx,actor,companyId,"UPDATE","branches",before.id,before,changed);
+    } else await executeAccountingApproval(tx,actor,companyId,approval);
   }
   const changed=await tx.approval.update({where:{id:approval.id},data:{status:raw.operation==="approve"?"APPROVED":"REJECTED",decidedBy:actor.id,decidedAt:new Date(),decisionNote:String(raw.note||"").slice(0,2000),executedAt:raw.operation==="approve"?new Date():null,updatedBy:actor.id}});
   await audit(tx,actor,companyId,raw.operation==="approve"?"APPROVE":"REJECT","approvals",approval.id,approval,changed);return changed;

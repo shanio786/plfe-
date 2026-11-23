@@ -9,6 +9,7 @@ function positive(name:string, fallback:number) {
 export const config = {
   databaseUrl: process.env.PLFE_DATABASE_URL || process.env.DATABASE_URL,
   appUrl: process.env.APP_URL,
+  accountingTimezone: process.env.ACCOUNTING_TIMEZONE || "Asia/Karachi",
   cookieName: process.env.SESSION_COOKIE_NAME || "__Host-plfe-session",
   passwordMinLength: positive("PASSWORD_MIN_LENGTH",10),
   bcryptRounds: positive("BCRYPT_ROUNDS",12),

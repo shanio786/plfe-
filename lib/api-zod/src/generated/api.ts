@@ -55,3 +55,67 @@ export const SaveFoundationBody = zod.record(zod.string(), zod.unknown())
 export const SaveFoundationResponse = zod.record(zod.string(), zod.unknown())
 
 
+export const ListAccountsRecordsParams = zod.object({
+  "company": zod.coerce.string(),
+  "accountResource": zod.coerce.string()
+})
+
+export const ListAccountsRecordsQueryParams = zod.object({
+  "search": zod.coerce.string().optional(),
+  "status": zod.coerce.string().optional(),
+  "page": zod.coerce.number().int().optional(),
+  "pageSize": zod.coerce.number().int().optional(),
+  "sort": zod.coerce.string().optional(),
+  "direction": zod.coerce.string().optional()
+})
+
+export const ListAccountsRecordsResponse = zod.object({
+  "rows": zod.array(zod.record(zod.string(), zod.unknown())),
+  "total": zod.int(),
+  "page": zod.int(),
+  "pageSize": zod.int()
+})
+
+
+export const SaveAccountsRecordParams = zod.object({
+  "company": zod.coerce.string(),
+  "accountResource": zod.coerce.string()
+})
+
+export const SaveAccountsRecordBody = zod.record(zod.string(), zod.unknown())
+
+export const SaveAccountsRecordResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const GetAccountsRecordParams = zod.object({
+  "company": zod.coerce.string(),
+  "accountResource": zod.coerce.string(),
+  "accountRecordId": zod.coerce.string()
+})
+
+export const GetAccountsRecordResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const GetAccountsReportParams = zod.object({
+  "company": zod.coerce.string(),
+  "reportName": zod.coerce.string()
+})
+
+export const GetAccountsReportQueryParams = zod.object({
+  "from": zod.coerce.string().optional(),
+  "to": zod.coerce.string().optional(),
+  "accountId": zod.coerce.string().optional(),
+  "partyId": zod.coerce.string().optional(),
+  "departmentId": zod.coerce.string().optional(),
+  "page": zod.coerce.number().int().optional(),
+  "pageSize": zod.coerce.number().int().optional()
+})
+
+export const GetAccountsReportResponse = zod.object({
+  "rows": zod.array(zod.record(zod.string(), zod.unknown())),
+  "total": zod.int(),
+  "page": zod.int(),
+  "pageSize": zod.int()
+})
+
+

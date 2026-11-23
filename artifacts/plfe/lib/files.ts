@@ -9,7 +9,14 @@ import {audit} from "./audit";
 import {AppError} from "./errors";
 import type {Actor} from "@/modules/core/model";
 import type {Prisma} from "@prisma/client";
-async function targetCheck(tx:Prisma.TransactionClient,companyId:string,docType:string,docId:string) {
+import {authorize,ledgerLock} from "@/modules/accounts/model";
+async function targetCheck(tx:Prisma.TransactionClient,companyId:string,docType:string,docId:string,actor:Actor) {
+  const cfg=({INVOICE:{model:"invoice",permission:"accounts.invoice.read"},BILL:{model:"bill",permission:"accounts.bill.read"},PAYMENT:{model:"payment",permission:"accounts.payment.read"},ENTRY:{model:"journalEntry",permission:"accounts.entry.read"}} as Record<string,{model:string;permission:string}>)[docType];
+  if(cfg) {
+    await authorize(tx,actor,companyId,cfg.permission);
+    if(!await (tx as any)[cfg.model].findFirst({where:{id:docId,companyId,deletedAt:null}}))throw new AppError(404,"Attachment target not found in this company");
+    return;
+  }
   const target=docType==="COMPANY"
     ? (docId===companyId?await tx.company.findFirst({where:{id:docId,deletedAt:null}}):null)
     : docType==="BRANCH"?await tx.branch.findFirst({where:{id:docId,companyId,deletedAt:null}})
@@ -30,7 +37,7 @@ export async function uploadFile(actor:Actor,code:string,form:FormData) {
   if(!/^[a-f0-9-]{36}$/i.test(docId)) throw new AppError(400,"Invalid attachment target");
   // Authorize before reading bytes from the submitted File.
   const company=await db.$transaction(async tx=>{
-    const c=await companyScope(tx,actor,code,"core.attachment.create");await targetCheck(tx,c.id,docType,docId);return c;
+    const c=await companyScope(tx,actor,code,"core.attachment.create");await targetCheck(tx,c.id,docType,docId,actor);return c;
   });
   const bytes=Buffer.from(await file.arrayBuffer()),mime=detect(bytes,file.type);
   if(!config.allowedMime.includes(mime)) throw new AppError(400,"File type not allowed");
@@ -42,7 +49,7 @@ export async function uploadFile(actor:Actor,code:string,form:FormData) {
   try {
     return await db.$transaction(async tx=>{
       await companyScope(tx,actor,code,"core.attachment.create");
-      await targetCheck(tx,company.id,docType,docId);
+      await targetCheck(tx,company.id,docType,docId,actor);
       const record=await tx.attachment.create({data:{companyId:company.id,docType,docId,filePath:storageKey,name:path.basename(file.name).slice(0,255),size:BigInt(bytes.length),mime,checksum:createHash("sha256").update(bytes).digest("hex"),uploadedBy:actor.id,createdBy:actor.id,updatedBy:actor.id}});
       await audit(tx,actor,company.id,"CREATE","attachments",record.id,null,record);return record;
     });
@@ -53,7 +60,7 @@ export async function downloadFile(actor:Actor,code:string,id:string) {
     const company=await companyScope(tx,actor,code,"core.attachment.read");
     const r=await tx.attachment.findFirst({where:{id,companyId:company.id,deletedAt:null}});
     if(!r) throw new AppError(404,"File not found");
-    await targetCheck(tx,company.id,r.docType,r.docId);return r;
+    await targetCheck(tx,company.id,r.docType,r.docId,actor);return r;
   });
   const resolved=path.resolve(config.uploadDir,record.filePath);
   if(!resolved.startsWith(config.uploadDir+path.sep)) throw new AppError(403,"Invalid file path");
@@ -65,6 +72,13 @@ export async function removeFile(actor:Actor,code:string,id:string) {
     await lockRow(tx,"attachments",id,company.id);
     const before=await tx.attachment.findFirst({where:{id,companyId:company.id,deletedAt:null}});
     if(!before) throw new AppError(404,"Attachment not found");
+    await targetCheck(tx,company.id,before.docType,before.docId,actor);
+    if(before.docType==="ENTRY") {
+      await ledgerLock(tx,company.id);
+      const entry=await tx.journalEntry.findFirst({where:{id:before.docId,companyId:company.id,status:"POSTED",kind:"EXPENSE"}});
+      if(entry&&await tx.attachment.count({where:{companyId:company.id,docType:"ENTRY",docId:before.docId,deletedAt:null}})<=1)
+        throw new AppError(409,"The supporting bill for a posted expense must be retained");
+    }
     if(await tx.company.findFirst({where:{id:company.id,logoAttachmentId:id}})) throw new AppError(409,"Remove the company logo reference first");
     if(await tx.user.findFirst({where:{photoStorageKey:before.filePath,deletedAt:null}})) throw new AppError(409,"Remove the user photo reference first");
     const changed=await tx.attachment.update({where:{id},data:{deletedAt:new Date(),updatedBy:actor.id}});

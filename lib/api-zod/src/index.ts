@@ -1,4 +1,3 @@
 export * from "./generated/api";
-// Runtime schemas are exported here. Generated request types remain available
-// through generated/types; avoid Orval's path/query Params name collision.
-export * from './generated/types';
+// Keep generated request types in their individual files: Orval's Zod path
+// schemas and query types can otherwise export colliding Params identifiers.

@@ -50,11 +50,23 @@
   protection. Prisma validation/generation and migration deployment passed on
   both local development and isolated test databases; deferred-trigger metadata
   and the three dimension columns were verified.
+- **Phase 2 step 2 complete:** implemented the shared `/lib/posting` boundary,
+  draft/post/reversal workflows, permission-checked company-scoped services,
+  transaction-safe numbering, allocation/advance handling and audit snapshots.
+- Added accounting master/settings services, first-install chart initialization,
+  company provisioning integration and Phase 2 permission templates. Financial
+  approvals execute in the existing approval transaction; posted source documents
+  retain their originals and link their reversals.
+- Added the accounting API, scoped document attachments/exports, SQL trial balance,
+  general/account/party ledgers and posted-entry overview. High-value net cash/bank
+  outflows through vouchers use the payment approval rule too. Application and
+  shared-library type checks passed; runtime accounting acceptance is still pending.
 
 ## Half-done
 
-- **Phase 2 Accounts core:** migration applied. Shared posting, services, screens,
-  both-company test seed and accounting acceptance remain to
+- **Phase 2 Accounts core:** migration and services implemented. Screens are
+  implemented but not yet verified against seeded live data. Both-company test
+  seed and accounting acceptance remain to
   be delivered. See `docs/phase2-decisions.md`.
 
 ## Deferred to Phase 9
@@ -67,12 +79,11 @@
 
 ## Next
 
-1. Implement shared posting/reversals and authorized, transactional, audited services.
-2. Build Accounts screens using the shared Phase 1 table/forms.
-3. Seed the shared expo chart and clearly identified test data for both companies.
-4. Verify balance constraints, numbering concurrency, company isolation, allocations,
+1. Commit the Accounts screens using the shared Phase 1 table/forms.
+2. Seed the shared expo chart and clearly identified test data for both companies.
+3. Verify balance constraints, numbering concurrency, company isolation, allocations,
    cancellations and the twenty-document acceptance scenario.
-5. Update module/progress documentation and explain how to run Phase 2 acceptance.
+4. Update module/progress documentation and explain how to run Phase 2 acceptance.
    Commit and push after each completed step. Stop before Phase 3.
 
 ## Workflow for each completed step

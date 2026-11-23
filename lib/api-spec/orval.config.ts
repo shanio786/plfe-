@@ -52,6 +52,7 @@ export default defineConfig({
     },
     output: {
       workspace: apiZodSrc,
+      indexFiles: false,
       client: "zod",
       target: "generated",
       schemas: { path: "generated/types", type: "typescript" },

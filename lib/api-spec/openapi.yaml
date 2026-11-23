@@ -70,6 +70,71 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FoundationRecord"
+  /{company}/accounts/{accountResource}:
+    parameters:
+      - {name: company, in: path, required: true, schema: {type: string}}
+      - {name: accountResource, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: listAccountsRecords
+      parameters:
+        - {name: search, in: query, schema: {type: string}}
+        - {name: status, in: query, schema: {type: string}}
+        - {name: page, in: query, schema: {type: integer}}
+        - {name: pageSize, in: query, schema: {type: integer}}
+        - {name: sort, in: query, schema: {type: string}}
+        - {name: direction, in: query, schema: {type: string}}
+      responses:
+        "200":
+          description: Company-scoped paginated accounting records; decimals are strings
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/FoundationPage"}
+    post:
+      operationId: saveAccountsRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/FoundationInput"}
+      responses:
+        "200":
+          description: Saved, posted, reversed, allocated or approval requested
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/FoundationRecord"}
+  /{company}/accounts/{accountResource}/{accountRecordId}:
+    parameters:
+      - {name: company, in: path, required: true, schema: {type: string}}
+      - {name: accountResource, in: path, required: true, schema: {type: string}}
+      - {name: accountRecordId, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: getAccountsRecord
+      responses:
+        "200":
+          description: Scoped document detail with lines, allocations and entry links
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/FoundationRecord"}
+  /{company}/accounts/reports/{reportName}:
+    parameters:
+      - {name: company, in: path, required: true, schema: {type: string}}
+      - {name: reportName, in: path, required: true, schema: {type: string}}
+    get:
+      operationId: getAccountsReport
+      parameters:
+        - {name: from, in: query, schema: {type: string}}
+        - {name: to, in: query, schema: {type: string}}
+        - {name: accountId, in: query, schema: {type: string}}
+        - {name: partyId, in: query, schema: {type: string}}
+        - {name: departmentId, in: query, schema: {type: string}}
+        - {name: page, in: query, schema: {type: integer}}
+        - {name: pageSize, in: query, schema: {type: integer}}
+      responses:
+        "200":
+          description: SQL trial balance or ledger, with decimal-string totals and drill-through links
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/FoundationPage"}
 components:
   schemas:
     HealthStatus:

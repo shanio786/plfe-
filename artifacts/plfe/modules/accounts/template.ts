@@ -1,0 +1,45 @@
+// One source, copied into each company; these are never shared account rows.
+export const expoChart=[
+  ["1000","Assets","ASSET",null,"group"],
+  ["1100","Cash and bank","ASSET","1000","group"],
+  ["1110","Cash in hand","ASSET","1100","cash"],
+  ["1120","Bank current account","ASSET","1100","bank"],
+  ["1200","Customer / exhibitor receivables","ASSET","1000",""],
+  ["1300","Stock and inventory","ASSET","1000",""],
+  ["1400","Staff loans","ASSET","1000",""],
+  ["1500","Input tax recoverable","ASSET","1000",""],
+  ["2000","Liabilities","LIABILITY",null,"group"],
+  ["2100","Supplier payables","LIABILITY","2000",""],
+  ["2200","Customer advances","LIABILITY","2000",""],
+  ["2300","Sales tax payable","LIABILITY","2000",""],
+  ["2400","Withholding tax payable","LIABILITY","2000",""],
+  ["2500","Salaries payable","LIABILITY","2000",""],
+  ["2600","EOBI payable","LIABILITY","2000",""],
+  ["3000","Equity","EQUITY",null,"group"],
+  ["3100","Owner capital","EQUITY","3000",""],
+  ["3200","Retained earnings","EQUITY","3000",""],
+  ["3900","Opening balance equity","EQUITY","3000",""],
+  ["4000","Income","INCOME",null,"group"],
+  ["4100","Booth rent income","INCOME","4000",""],
+  ["4200","Sponsorship income","INCOME","4000",""],
+  ["4300","Showroom sales","INCOME","4000",""],
+  ["4350","Sales returns","INCOME","4000",""],
+  ["4400","Other income","INCOME","4000",""],
+  ["5000","Expenses","EXPENSE",null,"group"],
+  ["5100","Venue rent","EXPENSE","5000",""],
+  ["5200","Stall fabrication","EXPENSE","5000",""],
+  ["5300","Labour","EXPENSE","5000",""],
+  ["5400","Event staff","EXPENSE","5000",""],
+  ["5500","Marketing","EXPENSE","5000",""],
+  ["5600","Printing","EXPENSE","5000",""],
+  ["5700","Utilities","EXPENSE","5000",""],
+  ["5800","Salaries","EXPENSE","5000",""],
+  ["5900","Office / showroom rent","EXPENSE","5000",""],
+  ["5950","Cost of goods sold","EXPENSE","5000",""],
+  ["5990","Other expenses","EXPENSE","5000",""]
+] as const;
+export const journalTemplate=[
+  ["SALES","Sales journal","SALES"],["PURCHASE","Purchase journal","PURCHASE"],
+  ["GENERAL","General journal","GENERAL"],["CASH","Cash journal","CASH"],["BANK","Bank journal","BANK"]
+] as const;
+export const accountsDocumentTypes=["INV","CN","BILL","DN","REC","PAY","JE","JV","CV","BV","TRF","EXP","REV"];
