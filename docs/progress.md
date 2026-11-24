@@ -60,7 +60,9 @@ authenticated screens are not represented as browser-accepted yet.
   enrollment-status route passed; enrollment remains available/configured.
   The public sign-in screenshot rendered. PostgreSQL test guard rejections are
   expected negative-test evidence, not application/worker startup failures.
-- Commit/push verification will be recorded here before starting Part 5.
+- Committed Part 4 as `38b4b4b92ac9f7bb78e56e56071780f63763980c`,
+  pushed successfully, and verified an exact remote `refs/heads/main` SHA match
+  before starting Part 5. This confirmation is committed separately.
 
 ## Part 3 — Payment controls — 2026-11-24
 
