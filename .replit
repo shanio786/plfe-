@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "python-base-3.13"]
+modules = ["nodejs-20", "web"]
 
 [deployment]
 router = "application"
@@ -61,3 +61,6 @@ PLFE_DATABASE_URL = "postgresql://runner@127.0.0.1:55432/plfe?schema=public"
 SEED_OWNER_EMAIL = "owner@plfe.local"
 SEED_OWNER_NAME = "System Owner"
 TEST_DATABASE_URL = "postgresql://runner@127.0.0.1:55432/plfe_test?schema=public"
+
+[nix]
+channel = "stable-25_05"
