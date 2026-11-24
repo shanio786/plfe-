@@ -59,8 +59,11 @@ external connection or Odoo import.
 - Parts 2–5 are **not implemented by this revision yet**. Tax, new payment
   controls, guided opening/imports, intercompany posting/cash counts/reset and
   their requested acceptance coverage remain outstanding.
-- This entry precedes the Part 1 implementation commit/push; handover records
-  the actual verified remote outcome. Do not mark the overall task complete.
+- Part 1 implementation was committed as
+  `a5c25f93fb8dc097b2a3001a3349f3f8de7cb93f` and successfully pushed to
+  `origin/main`. `git ls-remote origin refs/heads/main` matched that full local
+  revision. This records the code checkpoint, not completion of Part 1's
+  outstanding operator/screen acceptance or the overall five-part task.
 
 ### Next, in authorized order
 
