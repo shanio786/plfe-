@@ -135,11 +135,15 @@ export function CompaniesSection() {
   const { company, can, notify } = useAdmin();
   const [logoFor, setLogoFor] = useState<RecordData | null>(null);
   const [tick, setTick] = useState(0);
-  const months = L.months.map((m, i) => ({ value: String(i + 1), label: m }));
+  const [types,setTypes]=useState<{value:string;label:string}[]>([]);
+  useEffect(()=>{api<RecordData[]>("/business-types").then(rows=>setTypes(rows.map(r=>({value:r.code,label:r.name})))).catch(e=>notify(e.message));},[]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Label the financial year END; submit the existing start-month convention.
+  const months = L.months.map((m, i) => ({ value: String((i+1)%12+1), label: m }));
   const fields: Field[] = [
     { name: "code", kind: "text" }, { name: "name", kind: "text" }, { name: "legalName", kind: "text", wide: true },
     { name: "ntn", kind: "text" }, { name: "strn", kind: "text" }, { name: "phone", kind: "text" }, { name: "email", kind: "email" },
     { name: "currency", kind: "text" }, { name: "fyStartMonth", kind: "select", options: months },
+    { name: "businessType", kind: "select", options: types },
     { name: "active", kind: "switch" }, { name: "address", kind: "textarea" },
   ];
   return (
@@ -150,10 +154,10 @@ export function CompaniesSection() {
           col("logo", (r) => r.logoAttachmentId
             ? <img src={`${API}/${company}/files/${r.logoAttachmentId}`} alt="" className="h-7 w-7 rounded border object-contain bg-card" />
             : <div className="grid h-7 w-7 place-items-center rounded border border-dashed text-[10px] text-muted-foreground font-mono">{String(r.code ?? "").slice(0, 2)}</div>, false),
-          mono("code"), strong("name"), col("ntn"), col("strn"), mono("currency"),
-          col("fyStartMonth", (r) => L.months[Number(r.fyStartMonth) - 1] ?? "—"), col("lockDate", (r) => date(r.lockDate)), col("active", (r) => <ActiveTag v={r.active} />),
+          mono("code"), strong("name"), col("businessType"), col("ntn"), col("strn"), mono("currency"),
+          col("fyStartMonth", (r) => L.months[(Number(r.fyStartMonth)+10)%12] ?? "—"), col("lockDate", (r) => date(r.lockDate)), col("active", (r) => <ActiveTag v={r.active} />),
         ]}
-        toForm={(r) => ({ ...pick(r, ["code", "name", "legalName", "ntn", "strn", "address", "phone", "email"]), currency: r?.currency ?? "PKR", fyStartMonth: String(r?.fyStartMonth ?? 7), active: r?.active ?? true })}
+        toForm={(r) => ({ ...pick(r, ["code", "name", "legalName", "ntn", "strn", "address", "phone", "email"]), businessType:r?.businessType??"EVENTS",currency: r?.currency ?? "PKR", fyStartMonth: String(r?.fyStartMonth ?? 7), active: r?.active ?? true })}
         toPayload={(v) => ({ ...v, fyStartMonth: parseInt(String(v.fyStartMonth), 10) })}
         extraActions={(r) => [{ label: L.actions.uploadLogo, onClick: () => setLogoFor(r), hidden: !(can("core.company.update") && can("core.attachment.create")) }]}
       />

@@ -15,7 +15,8 @@
     "lock:standalone": "node scripts/update-npm-lock.mjs",
     "worker": "tsx scripts/worker.ts",
     "test": "node scripts/test-phase1.mjs",
-    "test:phase2": "node scripts/test-phase2.mjs"
+    "test:phase2": "node scripts/test-phase2.mjs",
+    "test:provisioning":"node scripts/test-provisioning.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.8",

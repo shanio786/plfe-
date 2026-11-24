@@ -40,7 +40,7 @@ before(async()=>{
   admin=await saveRecord(owner,a,"users",{name:"Scoped administrator",email:`admin-${suffix.toLowerCase()}@test.invalid`,password:"Testing987654321",roleIds:[adminRole.id]});
   viewer=await saveRecord(owner,a,"users",{name:"Read only",email:`viewer-${suffix.toLowerCase()}@test.invalid`,password:"Testing987654321",roleIds:[viewerRole.id]});
   await db.user.updateMany({where:{id:{in:[admin.id,viewer.id]}},data:{mustChangePassword:false}});
-  branch=await saveRecord(owner,a,"branches",{code:"HQ",name:"Head Office",type:"OFFICE"});
+  branch=await db.branch.findFirstOrThrow({where:{companyId:first.id,code:"HQ",deletedAt:null}});
 }, {timeout:60000});
 after(async()=>db.$disconnect());
 
@@ -110,7 +110,7 @@ test("Opaque session hashes are SHA-256; password policy rejects weak values",()
   assert.doesNotThrow(()=>checkPassword("StrongTest12345"));
 });
 test("Financial years create twelve periods and overlapping dates are rejected",async()=>{
-  fy=await saveRecord(owner,a,"fiscal-years",{name:"2026-2027",startDate:"2026-07-01",endDate:"2027-06-30"});
+  fy=await db.fiscalYear.findFirstOrThrow({where:{companyId:first.id,deletedAt:null}});
   assert.equal(await db.period.count({where:{companyId:first.id,fiscalYearId:fy.id}}),12);
   await assert.rejects(()=>saveRecord(owner,a,"fiscal-years",{name:"Overlap",startDate:"2026-07-01",endDate:"2027-06-30"}));
 });
@@ -196,7 +196,8 @@ test("Compose passes only the runtime allowlist to app and worker",async()=>{
   for(const service of ["app","worker"]) {
     const block=compose.match(new RegExp(`\\n  ${service}:\\n([\\s\\S]*?)(?=\\n  [a-z]+:|\\nvolumes:)`))?.[1];
     assert.ok(block);
-    assert.match(block,/environment: \*runtime-environment/);
+    assert.match(block,service==="app"?/<<: \*runtime-environment/:/environment: \*runtime-environment/);
+    if(service==="worker")assert.doesNotMatch(block,/BOOTSTRAP_/);
   }
   assert.match(compose,/profiles: \["maintenance"\]/);
 });

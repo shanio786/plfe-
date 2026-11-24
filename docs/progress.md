@@ -1,5 +1,75 @@
 # PLFE progress
 
+## Five-part fresh-start Accounts revision — 2026-11-24
+
+This supersedes the old missing-original-database blocker below. The operator
+authorized only this application's own empty database, without any restore,
+external connection or Odoo import.
+
+### Part 1 — implemented; operator enrollment and screen acceptance outstanding
+
+- Added an operator-gated `/enroll` flow. A private, random, app-only enrollment
+  credential is required; the operator supplies their own name/email/password.
+  Five failed attempts lock enrollment for fifteen minutes. A global identity
+  lock serializes enrollment; Owner creation and six-company configuration commit
+  together. Enrollment permanently closes afterward. Seeds cannot create/reset
+  credentials or add an initial Owner on rerun.
+- Added data-owned business types (initial Events/Retail templates), with a
+  back-office selection. Business/chart behavior no longer branches on company
+  codes. The six names/codes remain initial configuration only.
+- Creating a company through the existing screen's service now transactionally
+  creates Head Office, roles/grants, the first year/twelve periods, numbering,
+  approval defaults, posting settings and business-type chart. Retail receives
+  two showrooms. The screen displays the year-END month while submitting the
+  following stored year-start month. Type/calendar/currency changes after
+  provisioning require controlled conversion rather than silently changing books.
+- Delegated company creators require an explicit grant in their source company
+  and receive no stronger access in the new company than they held there.
+- Group accounts explicitly reference counterparties. A provisioning lock,
+  parent locks and database uniqueness prevent duplicate allocations. Both sides
+  are created together against active companies; allocated codes/links and
+  classifications cannot be changed or deleted, even if unused. Deactivation
+  retains all links/numbers. Child numbering is not based on company codes or
+  list positions and can extend beyond single-digit suffixes.
+- Added four disposable-database regression cases covering gated/concurrent
+  enrollment, six complete setups, seventh-company service creation, duplicate
+  requests, repeat-safe linking, permanent codes, deactivation, Events/Retail
+  behavior, delegated authorization and transactional rollback. First run passed
+  **4/4**. Existing suites passed **24/24 foundation** and **22/22 accounting**;
+  the optimized production build passed. After the final guards and app-only
+  enrollment environment changes, reran all three suites on two newly created
+  isolated databases: **4/4**, **24/24** and **22/22** passed again.
+- Applied the migration only to this application's own empty local database.
+  Rebuilt and restarted the PLFE web server and foundation worker once after the
+  changes. Both start cleanly. Preview health returns `{"status":"ok"}` and the
+  enrollment endpoint correctly returns available but not configured. A screenshot
+  confirmed the enrollment setup-gate page, not authenticated company-screen
+  acceptance. The old unrelated API/Canvas scaffolds remain outside this work.
+- The application's own `plfe` database was read-only checked: **0 users,
+  0 companies, 0 journal entries**. No business data, fabricated opening amounts,
+  substitute Owner identity or default password was initialized.
+
+### Half-done / not yet verified
+
+- The operator has not supplied `BOOTSTRAP_ENROLLMENT_TOKEN`; actual enrollment
+  and initial company creation remain intentionally gated. No identity was
+  invented to bypass this. The actual seventh-company screen and final browser
+  financial journeys remain unverified; service/database tests are not claimed
+  as screen acceptance.
+- Parts 2–5 are **not implemented by this revision yet**. Tax, new payment
+  controls, guided opening/imports, intercompany posting/cash counts/reset and
+  their requested acceptance coverage remain outstanding.
+- This entry precedes the Part 1 implementation commit/push; handover records
+  the actual verified remote outcome. Do not mark the overall task complete.
+
+### Next, in authorized order
+
+1. Finish Part 1 operator enrollment and actual-screen acceptance using the
+   private enrollment flow; never share the login password in chat/logs.
+2. Continue Tax, then payment controls, guided opening/imports and Part 5.
+3. Commit/push each part with honest progress; finish all regression coverage,
+   one final disposable-data browser pass, clean app/worker startup and handover.
+
 ## Current Phase 2 correction — 2026-11-24
 
 ### Implemented and verified

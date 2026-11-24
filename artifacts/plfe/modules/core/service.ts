@@ -15,9 +15,20 @@ import {resourceConfig} from "./queries";
 import type {Actor} from "./model";
 import {executeAccountingApproval} from "@/modules/accounts/service";
 import {initializeAccounts} from "@/modules/accounts/bootstrap";
+import {initializeCompanyCalendar} from "@/modules/accounts/group";
+import {linkCounterparties} from "@/modules/accounts/counterparties";
 
-export async function provisionCompany(tx:Prisma.TransactionClient,actor:Actor,input:unknown) {
+export async function provisionCompany(tx:Prisma.TransactionClient,actor:Actor,input:unknown,sourceCompanyId?:string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(71007101)`;
+  const operator=await tx.user.findFirst({where:{id:actor.id,active:true,deletedAt:null}});
+  if(!operator)throw new AppError(401,"Sign in required");
+  if(!operator.isOwner) {
+    if(operator.mustChangePassword)throw new AppError(403,"Change your password before continuing");
+    if(!sourceCompanyId||!await tx.rolePermission.findFirst({where:{companyId:sourceCompanyId,permissionCode:"core.company.create",role:{deletedAt:null,memberships:{some:{userId:actor.id,company:{active:true,deletedAt:null}}}}}}))
+      throw new AppError(403,"Company creation permission required");
+  }
   const data=schemas.companySchema.parse(input);
+  if(!await tx.businessType.findUnique({where:{code:data.businessType}}))throw new AppError(400,"Choose a configured business type");
   const c=await tx.company.create({data:{...data,createdBy:actor.id,updatedBy:actor.id}});
   await audit(tx,actor,c.id,"CREATE","companies",c.id,null,c);
   for(const template of roleTemplates) {
@@ -29,7 +40,20 @@ export async function provisionCompany(tx:Prisma.TransactionClient,actor:Actor,i
     const rule=await tx.approvalRule.create({data:{companyId:c.id,docType:docType!,action:action!,thresholdAmount:thresholdAmount?money(thresholdAmount):null,approverPermissionCode:"core.approval.approve",createdBy:actor.id,updatedBy:actor.id}});
     await audit(tx,actor,c.id,"CREATE","approval_rules",rule.id,null,rule);
   }
-  await initializeAccounts(tx,actor,c.id);
+  const role=await tx.role.findFirstOrThrow({where:{companyId:c.id,name:operator.isOwner?"Owner":"Admin",deletedAt:null}});
+  // Delegated creators retain only permissions they already hold; no indirect grant.
+  if(!operator.isOwner) {
+    const own=await tx.rolePermission.findMany({where:{companyId:sourceCompanyId!,role:{deletedAt:null,memberships:{some:{userId:actor.id,company:{active:true,deletedAt:null}}}}}});
+    const codes=[...new Set(own.map(g=>g.permissionCode))];
+    await tx.rolePermission.deleteMany({where:{companyId:c.id,roleId:role.id}});
+    await tx.rolePermission.createMany({data:codes.map(permissionCode=>({companyId:c.id,roleId:role.id,permissionCode,createdBy:actor.id,updatedBy:actor.id}))});
+    await audit(tx,actor,c.id,"UPDATE","roles",role.id,{permissionCodes:roleTemplates.find(t=>t.name===role.name)!.permissions},{permissionCodes:codes,reason:"Creator access cannot exceed source-company permissions"});
+  }
+  const membership=await tx.userCompanyRole.create({data:{companyId:c.id,userId:actor.id,roleId:role.id,createdBy:actor.id,updatedBy:actor.id}});
+  await audit(tx,actor,c.id,"CREATE","user_company_roles",membership.id,null,membership);
+  await initializeCompanyCalendar(tx,actor,c);
+  await initializeAccounts(tx,actor,c.id,true);
+  await linkCounterparties(tx,actor,c.id);
   return c;
 }
 
@@ -102,12 +126,14 @@ export async function saveRecord(actor:Actor,code:string,resource:string,input:u
     const companyId=company.id,meta={updatedBy:actor.id},createMeta={...meta,createdBy:actor.id,companyId};
     let before:any=null,after:any;
     if(resource==="companies") {
-      if(!raw.id) {if(!actor.isOwner) throw new AppError(403,"Only an Owner may create companies");return provisionCompany(tx,actor,raw);}
+      if(!raw.id) return provisionCompany(tx,actor,raw,companyId);
       if(!actor.isOwner && raw.id!==companyId) throw new AppError(403,"Company access denied");
       await lockRow(tx,"companies",raw.id);
       before=await tx.company.findFirst({where:{id:raw.id,deletedAt:null}});
       if(!before) throw new AppError(404,"Company not found");
       const data=schemas.companySchema.parse({...before,...raw});
+      if(data.businessType!==before.businessType || data.fyStartMonth!==before.fyStartMonth || data.currency!==before.currency)
+        throw new AppError(409,"Business type, currency and financial calendar are fixed at provisioning; a controlled conversion is required");
       if(!data.active && !actor.isOwner) throw new AppError(403,"Only an Owner may deactivate a company");
       if(data.logoAttachmentId) {
         await lockRow(tx,"attachments",data.logoAttachmentId,before.id);

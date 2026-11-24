@@ -6,7 +6,6 @@ import type {Actor} from "@/modules/core/model";
 import {saveAccountRecord} from "./service";
 import {accountingToday} from "./time";
 import {assertDemoOnly} from "./correction";
-import {isRetailCompany} from "./template";
 
 const prefix="TEST-P2/CORRECTED/";
 /** Explicit demo fixture, never run by normal startup or production migrations. */
@@ -14,7 +13,8 @@ export async function seedDemoBooks(actor:Actor,code:string) {
   const company=await db.$transaction(tx=>companyScope(tx,actor,code,"accounts.entry.post"));
   const companyId=company.id;
   await db.$transaction(tx=>assertDemoOnly(tx,companyId));
-  const retail=isRetailCompany(company.code),cashAccount=retail?"1110":"1101",bankAccount="1201";
+  const business=await db.businessType.findUniqueOrThrow({where:{code:company.businessType}});
+  const retail=business.chartKind==="RETAIL",cashAccount=retail?"1110":"1101",bankAccount="1201";
   const accounts=await db.account.findMany({where:{companyId,deletedAt:null}});
   const journals=await db.journal.findMany({where:{companyId,deletedAt:null}});
   const department=await db.department.findFirstOrThrow({where:{companyId,code:"EVENTS",deletedAt:null}});

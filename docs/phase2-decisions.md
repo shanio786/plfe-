@@ -1,5 +1,26 @@
 # Approved Phase 2 scope
 
+## Latest override: five-part fresh start
+
+Use this app's own empty database, without external restoration/connection or
+Odoo import. Prior instructions below to preserve original company identities
+and assign fixed group suffixes are superseded. Initial companies are fixture
+configuration; behavior follows extensible business-type data. Allocate linked
+counterparty children once, permanently, under locks; never derive their codes
+from company codes or seed ordering.
+
+The latest authorized Accounts work is five ordered parts: (1) gated first-run
+Owner enrollment and data-driven company provisioning, (2) effective-dated tax,
+(3) payment controls, (4) guided opening and validated preview-confirmed imports,
+(5) linked intercompany postings, cash counts and non-destructive demo reset.
+Each part needs full services/screens/regressions, progress documentation and a
+verified commit/push before the next part. No unrelated Phase 3 work or VPS
+deployment is authorized. No real opening amounts or legal tax rates may be
+invented. Historical approval/financial protections below remain mandatory.
+
+The following earlier scope describes the baseline and is historical wherever
+it conflicts with this override.
+
 The user approved Phase 1 manual acceptance and authorized Phase 2 Accounts core.
 These instructions override conflicting sequencing in the original plan.
 

@@ -45,15 +45,28 @@ services. Owners are global flags, not merely a company role named Owner.
 See `docs/setup.md`, `docs/modules.md` and `docs/backup.md` for deployment,
 acceptance, implementation boundaries and operations.
 
-## Authorized Phase 2 correction
+## Authorized fresh-start Accounts revision
 
-The group has six companies and two chart templates. PLFE, SE and LPE close in
-June; LEV, PFE and Zahra Home close in December. Zahra Home is the only retailer
-and has two showrooms. Keep its existing `ZAHRA-HOME` code; `ZH` is shorthand.
-Read the correction in `docs/phase2-decisions.md`. Do not begin Phase 3.
+Use only this application's own empty database. Do not restore/connect another
+database or import Odoo data. The latest five-part Accounts revision supersedes
+the old identity/data-preservation blocker. Implement in order: data-driven
+companies/enrollment; tax; payment controls; guided opening/imports; intercompany,
+cash counts and guarded non-destructive demo reset. These are explicitly Accounts
+scope; unrelated Phase 3 work and VPS deployment are not authorized.
 
-`npm run db:seed:accounts` initializes all six without financial demo documents.
-An existing condensed chart/calendar requires explicit, guarded
-`npm run db:seed:accounts -- --correct-demo-chart`; add `--demo` only to reseed
-the original two companies. This reverses TEST-P2 postings and retains old history;
-it never hard-deletes books or resets document counters.
+The six starting companies are initial configuration, not a runtime allowlist.
+Events/Retail behavior follows company-owned business-type data, never its code.
+PLFE, SE and LPE close in June; LEV, PFE and Zahra Home close in December.
+Retail has two showrooms. The UI shows year-end month while storage retains the
+following start month. Counterparty links and allocated child codes are permanent.
+
+First-run `/enroll` requires a private random operator credential configured as
+`BOOTSTRAP_ENROLLMENT_TOKEN` (32 random bytes / at least 43 base64url characters).
+The operator chooses their name, email and login password there. No seed/default
+password or invented Owner identity. Enrollment and six-company provisioning are
+atomic; reruns never create another initial Owner. Remove the enrollment secret
+afterward. `db:seed` only initializes configuration after enrollment.
+
+`npm --prefix artifacts/plfe run test:provisioning` requires a **fresh** dedicated
+`_test` database and refuses to erase existing identities. Other test suites can
+share a different disposable `_test` database. Never use application books for tests.

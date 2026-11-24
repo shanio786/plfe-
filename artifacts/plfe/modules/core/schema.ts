@@ -8,6 +8,7 @@ export const companySchema = z.object({
   code:z.string().trim().regex(/^[A-Za-z0-9-]{2,30}$/).transform(s=>s.toUpperCase()),name:text,legalName:text,
   ntn:optional,strn:optional,address:optional,phone:optional,email:z.union([z.string().email(),z.literal("")]).optional().nullable(),
   logoAttachmentId:uuid.optional().nullable(),currency:z.string().length(3).transform(s=>s.toUpperCase()).default("PKR"),
+  businessType:z.string().trim().regex(/^[A-Z][A-Z0-9_]{0,49}$/).default("EVENTS"),
   fyStartMonth:z.coerce.number().int().min(1).max(12).default(7),active:z.boolean().default(true)
 });
 export const branchSchema = z.object({code:text,name:text,type:z.enum(["OFFICE","SHOWROOM","WAREHOUSE","EVENT_SITE"]),address:optional,phone:optional,active:z.boolean().default(true)});

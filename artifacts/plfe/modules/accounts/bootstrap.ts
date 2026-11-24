@@ -5,9 +5,9 @@ import {chartTemplate,journalTemplate,accountsDocumentTypes} from "./template";
 import {accountsPermissions,accountsReadPermissions} from "./permissions";
 import {AppError} from "@/lib/errors";
 
-export async function installChart(tx:Tx,actor:Actor,companyId:string,companyCode:string) {
+export async function installChart(tx:Tx,actor:Actor,companyId:string,chartKind:string) {
   const accounts=new Map<string,string>();
-  for(const [code,name,type,parent,flag] of chartTemplate(companyCode)) {
+  for(const [code,name,type,parent,flag] of chartTemplate(chartKind)) {
     let a=await tx.account.findFirst({where:{companyId,code:{equals:code,mode:"insensitive"},deletedAt:null}});
     if(!a) {
       a=await tx.account.create({data:{companyId,code,name,type,parentId:parent?accounts.get(parent):null,isGroup:flag==="group",isCash:flag==="cash",isBank:flag==="bank",...meta(actor)}});
@@ -19,16 +19,17 @@ export async function installChart(tx:Tx,actor:Actor,companyId:string,companyCod
 }
 
 /** Idempotent first install; never resets edited charts, mappings or role grants. */
-export async function initializeAccounts(tx:Tx,actor:Actor,companyId:string) {
+export async function initializeAccounts(tx:Tx,actor:Actor,companyId:string,provisioning=false) {
   // Initial database seeding precedes the Owner's forced password change.
   // This non-HTTP bootstrap therefore verifies live global ownership directly.
-  if(!await tx.user.findFirst({where:{id:actor.id,isOwner:true,active:true,deletedAt:null}}))
+  const user=await tx.user.findFirst({where:{id:actor.id,active:true,deletedAt:null}});
+  if(!user||(!user.isOwner&&!provisioning))
     throw new AppError(403,"Only an active Owner may initialize company books");
   await ledgerLock(tx,companyId);
   const current=await tx.accountingSettings.findFirst({where:{companyId,deletedAt:null}});
   if(current)return current;
-  const company=await tx.company.findFirstOrThrow({where:{id:companyId,deletedAt:null}});
-  const accounts=await installChart(tx,actor,companyId,company.code),journals=new Map<string,string>();
+  const company=await tx.company.findFirstOrThrow({where:{id:companyId,deletedAt:null},include:{businessTypeRecord:true}});
+  const accounts=await installChart(tx,actor,companyId,company.businessTypeRecord.chartKind),journals=new Map<string,string>();
   for(const [code,name,type] of journalTemplate) {
     let j=await tx.journal.findFirst({where:{companyId,code:{equals:code,mode:"insensitive"},deletedAt:null}});
     if(!j){j=await tx.journal.create({data:{companyId,code,name,type,...meta(actor)}});await audit(tx,actor,companyId,"CREATE","journals",j.id,null,j);}
@@ -44,7 +45,7 @@ export async function initializeAccounts(tx:Tx,actor:Actor,companyId:string) {
     const n=await tx.numberSeries.create({data:{companyId,docType,prefix:company.code,format:"{PREFIX}/{TYPE}/{FY}/{NUMBER}",padding:4,...meta(actor)}});
     await audit(tx,actor,companyId,"CREATE","number_series",n.id,null,n);
   }
-  for(const role of await tx.role.findMany({where:{companyId,isSystem:true,deletedAt:null,name:{in:["Owner","Admin","Accountant","Viewer"]}},include:{grants:true}})) {
+  if(!provisioning)for(const role of await tx.role.findMany({where:{companyId,isSystem:true,deletedAt:null,name:{in:["Owner","Admin","Accountant","Viewer"]}},include:{grants:true}})) {
     const permissions=role.name==="Viewer"?accountsReadPermissions:accountsPermissions;
     const extra=role.name==="Accountant"?["core.approval.read","core.approval.create","core.attachment.read","core.attachment.create","core.attachment.delete"]:[];
     const missing=[...permissions,...extra].filter(p=>!role.grants.some(g=>g.permissionCode===p));

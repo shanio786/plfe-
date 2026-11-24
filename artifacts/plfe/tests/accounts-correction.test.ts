@@ -14,7 +14,8 @@ import {listAccounts} from "../modules/accounts/queries";
 import {accountsReport} from "../modules/accounts/reports";
 import {initializeGroup} from "../modules/accounts/group";
 import {correctDemoChart} from "../modules/accounts/correction";
-import {chartTemplate,groupCompanies} from "../modules/accounts/template";
+import {chartTemplate} from "../modules/accounts/template";
+import {groupCompanies} from "../modules/accounts/initial-companies";
 import {seedDemoBooks} from "../modules/accounts/demo";
 import {accountingToday} from "../modules/accounts/time";
 import {partySchema,provinces} from "../modules/accounts/schema";
@@ -34,15 +35,11 @@ before(async()=>{
     let company=await db.company.findFirst({where:{code,deletedAt:null}});
     // A rerun verifies the corrected setup rather than destroying earlier fixtures.
     if(company)continue;
-    company=await db.$transaction(tx=>provisionCompany(tx,owner,{code,name:code,legalName:code,currency:"PKR",fyStartMonth:7}),{timeout:60000});
-    const role=await db.role.findFirstOrThrow({where:{companyId:company.id,name:"Owner"}});
-    await db.userCompanyRole.create({data:{companyId:company.id,userId:owner.id,roleId:role.id}});
-    const year=accountingToday().getUTCFullYear()-(accountingToday().getUTCMonth()<6?1:0);
-    await saveRecord(owner,code,"fiscal-years",{name:`${year}-${year+1}`,startDate:`${year}-07-01`,endDate:`${year+1}-06-30`});
+    company=await db.$transaction(tx=>provisionCompany(tx,owner,{code,name:code,legalName:code,currency:"PKR",fyStartMonth:7,businessType:code==="ZAHRA-HOME"?"RETAIL":"EVENTS"}),{timeout:60000});
     await db.$transaction(async tx=>{
       // Retain unused modern fixture rows; install the precise old conflicting
       // control/cash codes that make a chart replacement unsafe without reversal.
-      await tx.account.updateMany({where:{companyId:company!.id},data:{deletedAt:new Date(),active:false}});
+      await tx.account.updateMany({where:{companyId:company!.id,counterpartyCompanyId:null,code:{notIn:["1600","2500"]}},data:{deletedAt:new Date(),active:false}});
       const rows=[
         ["1000","Assets","ASSET",true,false,false],
         ["1110","Cash in hand","ASSET",false,true,false],
@@ -87,7 +84,7 @@ before(async()=>{
 after(async()=>db.$disconnect());
 
 test("Guarded correction preserves posted originals, identities, memberships and counters",async()=>{
-  for(const company of originals)await correctDemoChart(owner,company.code);
+  for(const company of originals)await correctDemoChart(owner,company.code,company.businessType==="RETAIL"?1:7);
   assert.deepEqual(await db.user.findMany({orderBy:{id:"asc"}}),identities);
   assert.deepEqual(await db.userCompanyRole.findMany({where:{companyId:{in:originals.map(c=>c.id)}},orderBy:{id:"asc"}}),memberships);
   for(const entry of oldEntries)assert.deepEqual(await db.journalEntry.findUniqueOrThrow({where:{id:entry.id},include:{lines:{orderBy:{lineNo:"asc"}}}}),entry);
@@ -138,16 +135,17 @@ test("Events and Retail charts contain exact posting/group semantics and aligned
   for(const spec of groupCompanies) {
     const company=await db.company.findFirstOrThrow({where:{code:spec.code,deletedAt:null}});
     const rows=await db.account.findMany({where:{companyId:company.id,active:true,deletedAt:null},include:{parent:true}});
-    assert.equal(rows.length,chartTemplate(spec.code).length);
-    for(const [code,name,type,parent,flag] of chartTemplate(spec.code)) {
+    assert.equal(rows.filter(a=>!a.counterpartyCompanyId).length,chartTemplate(spec.businessType).length);
+    for(const [code,name,type,parent,flag] of chartTemplate(spec.businessType)) {
       const row=rows.find(a=>a.code===code)!;assert.ok(row,code);
       assert.equal(row.name,name);assert.equal(row.type,type);
       assert.equal(row.parent?.code??null,parent);
       assert.equal(row.isGroup,flag==="group");assert.equal(row.isBank,flag==="bank");assert.equal(row.isCash,flag==="cash");
     }
-    assert.equal(rows.filter(a=>a.parent?.code==="1600").length,5);
-    assert.equal(rows.filter(a=>a.parent?.code==="2500").length,5);
-    if(spec.retail) {
+    const others=await db.company.count({where:{id:{not:company.id},active:true,deletedAt:null}});
+    assert.equal(rows.filter(a=>a.parent?.code==="1600").length,others);
+    assert.equal(rows.filter(a=>a.parent?.code==="2500").length,others);
+    if(spec.businessType==="RETAIL") {
       assert.ok(rows.find(a=>a.code==="1110"&&a.isCash));
       assert.ok(rows.find(a=>a.code==="1120"&&a.isCash));
       assert.equal(await db.branch.count({where:{companyId:company.id,type:"SHOWROOM",deletedAt:null}}),2);
@@ -205,14 +203,14 @@ test("Chart correction rejects non-Owners, live drafts and locked demo books wit
   const account=await db.account.findFirstOrThrow({where:{companyId:company.id,code:"4100",active:true}});
   const draft=await saveAccountRecord(owner,"SE","invoices",{partyId:party.id,date,dueDate:date,narration:"Real draft",lines:[{accountId:account.id,description:"Real draft",qty:"1",rate:"10"}]});
   const before=await db.account.count({where:{companyId:company.id}});
-  await assert.rejects(()=>correctDemoChart(owner,"SE"),/non-TEST-P2/);
+  await assert.rejects(()=>correctDemoChart(owner,"SE",7),/non-TEST-P2/);
   assert.equal(await db.account.count({where:{companyId:company.id}}),before);
   await saveAccountRecord(owner,"SE","invoices",{id:draft.id,operation:"delete"});
   await db.company.update({where:{id:company.id},data:{fyStartMonth:7}});
   const retail=await db.company.findFirstOrThrow({where:{code:"ZAHRA-HOME",deletedAt:null}});
   await db.company.update({where:{id:retail.id},data:{fyStartMonth:7,lockDate:accountingToday()}});
   const count=await db.journalEntry.count({where:{companyId:retail.id}});
-  await assert.rejects(()=>correctDemoChart(owner,retail.code),/open financial year|locked/);
+  await assert.rejects(()=>correctDemoChart(owner,retail.code,1),/open financial year|locked/);
   assert.equal(await db.journalEntry.count({where:{companyId:retail.id}}),count);
   await db.company.update({where:{id:retail.id},data:{fyStartMonth:1,lockDate:null}});
 });

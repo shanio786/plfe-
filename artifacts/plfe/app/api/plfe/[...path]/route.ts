@@ -15,6 +15,7 @@ import {updateProfile} from "@/modules/core/service";
 import {getAccountRecord,listAccounts} from "@/modules/accounts/queries";
 import {accountsOverview,accountsReport} from "@/modules/accounts/reports";
 import {saveAccountRecord} from "@/modules/accounts/service";
+import {enrollmentStatus,enrollOwner} from "@/lib/enrollment";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 function json(body:unknown,status=200){return NextResponse.json(redact(body),{status,headers:{"Cache-Control":"no-store"}});}
@@ -44,6 +45,11 @@ async function handle(req:NextRequest,context:{params:Promise<{path:string[]}>})
     const {path}=await context.params;
     if(req.method!=="GET") csrf(req);
     if(path[0]==="healthz") {await db.$queryRaw`SELECT 1`;return json({status:"ok"});}
+    if(path[0]==="enrollment") {
+      if(req.method==="GET")return json(await enrollmentStatus());
+      if(req.method==="POST")return json(await enrollOwner(await req.json()));
+      throw new AppError(405,"Method not allowed");
+    }
     if(path[0]==="session") {
       if(req.method==="POST") return json(await login(await req.json()));
       if(req.method==="DELETE"){await logout();return json({ok:true});}
@@ -51,6 +57,7 @@ async function handle(req:NextRequest,context:{params:Promise<{path:string[]}>})
     }
     if(path[0]==="password" && req.method==="POST") return json(await changePassword(await requireActor(true),await req.json()));
     const actor=await requireActor();
+    if(path[0]==="business-types"&&req.method==="GET")return json(await db.businessType.findMany({orderBy:{name:"asc"}}));
     const [company,resource,id]=path;
     if(resource==="accounts") {
       const section=path[2]??"overview",recordId=path[3];

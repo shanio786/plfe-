@@ -18,7 +18,7 @@ export async function accountsFixture() {
   const [first,second]=await Promise.all([a,b].map(code=>db.$transaction(tx=>provisionCompany(tx,owner,{code,name:code,legalName:code,currency:"PKR",fyStartMonth:7,active:true}),{timeout:60000})));
   const now=accountingToday(),year=now.getUTCMonth()>=6?now.getUTCFullYear():now.getUTCFullYear()-1;
   const f={name:`${year}-${year+1}`,startDate:`${year}-07-01`,endDate:`${year+1}-06-30`};
-  const fiscal=await saveRecord(owner,a,"fiscal-years",f);await saveRecord(owner,b,"fiscal-years",f);
+  const fiscal=await db.fiscalYear.findFirstOrThrow({where:{companyId:first.id,deletedAt:null}});
   const approver=await user("Accounts Independent Approver"),viewer=await user("Accounts Single Company Viewer"),gate=await user("Accounts Gate Staff");
   for(const [u,name] of [[approver,"Accountant"],[viewer,"Viewer"],[gate,"Gate Staff"]] as const) {
     const role=await db.role.findFirstOrThrow({where:{companyId:first.id,name,deletedAt:null}});

@@ -35,7 +35,10 @@ services:
   app:
     build: .
     restart: unless-stopped
-    environment: *runtime-environment
+    environment:
+      <<: *runtime-environment
+      BOOTSTRAP_ENROLLMENT_TOKEN: ${BOOTSTRAP_ENROLLMENT_TOKEN:-}
+      BOOTSTRAP_OWNER_EMAIL: ${BOOTSTRAP_OWNER_EMAIL:-}
     depends_on:
       postgres: {condition: service_healthy}
     volumes:
@@ -62,9 +65,6 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL: ${MIGRATION_DATABASE_URL:-}
-      SEED_OWNER_EMAIL: ${SEED_OWNER_EMAIL:-}
-      SEED_OWNER_NAME: ${SEED_OWNER_NAME:-}
-      SEED_OWNER_PASSWORD: ${SEED_OWNER_PASSWORD:-}
       PASSWORD_MIN_LENGTH: ${PASSWORD_MIN_LENGTH:-10}
       BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
     depends_on:

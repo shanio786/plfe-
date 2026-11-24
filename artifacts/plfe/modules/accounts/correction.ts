@@ -10,7 +10,6 @@ import {cancelDocument,saveDocument} from "./documents";
 import {authorize,ledgerLock,type Tx} from "./model";
 import {requireBootstrapOwner,initializeCompanyCalendar} from "./group";
 import {accountingToday} from "./time";
-import {groupCompanies} from "./template";
 
 /** Refuse even unposted/archived non-demo financial data. Reversals must link to a TEST-P2 original. */
 export async function assertDemoOnly(tx:Tx,companyId:string) {
@@ -32,7 +31,7 @@ export async function assertDemoOnly(tx:Tx,companyId:string) {
  * installs new company-owned rows and updates validated posting mappings.
  * Existing approval rules, lock dates, periods and numbering counters are never bypassed/reset.
  */
-export async function correctDemoChart(actor:Actor,companyCode:string) {
+export async function correctDemoChart(actor:Actor,companyCode:string,targetStartMonth?:number) {
   return db.$transaction(async tx=>{
     await requireBootstrapOwner(tx,actor);
     const company=await tx.company.findFirstOrThrow({where:{code:companyCode,deletedAt:null}});
@@ -40,8 +39,8 @@ export async function correctDemoChart(actor:Actor,companyCode:string) {
     await ledgerLock(tx,company.id);
     const current=await tx.accountingSettings.findFirst({where:{companyId:company.id,deletedAt:null},include:{receivableAccount:true,openingEquityAccount:true}});
     const oldChart=current&&current.receivableAccount.code==="1200"&&current.openingEquityAccount.code==="3900";
-    const spec=groupCompanies.find(s=>s.code===company.code||(s.retail&&company.code==="ZH"));
-    if(!spec)throw new AppError(400,"Company is not an approved group company");
+    if(targetStartMonth!==undefined&&(!Number.isInteger(targetStartMonth)||targetStartMonth<1||targetStartMonth>12))throw new AppError(400,"Invalid target calendar start month");
+    const spec={startMonth:targetStartMonth??company.fyStartMonth};
     const calendarChange=company.fyStartMonth!==spec.startMonth;
     if(!oldChart&&!calendarChange)return false;
     await assertDemoOnly(tx,company.id);
@@ -65,13 +64,24 @@ export async function correctDemoChart(actor:Actor,companyCode:string) {
       await archiveJournalDraft(tx,actor,company.id,draft.id);
     if(oldChart) {
       for(const before of await tx.account.findMany({where:{companyId:company.id,deletedAt:null}})) {
+        // Allocated links and their non-posting parents remain permanent, even
+        // during this legacy demo-only maintenance operation.
+        if(before.counterpartyCompanyId||await tx.account.findFirst({where:{companyId:company.id,parentId:before.id,counterpartyCompanyId:{not:null}}}))continue;
         const sums=await tx.journalLine.aggregate({where:{companyId:company.id,accountId:before.id,entry:{status:"POSTED"}},_sum:{debit:true,credit:true}});
         if(!new Prisma.Decimal(sums._sum.debit??"0").eq(sums._sum.credit??"0"))
           throw new AppError(409,"Chart correction refused: old account balance is not zero");
         const after=await tx.account.update({where:{id:before.id,companyId:company.id},data:{code:`LEGACY-${before.code}-${before.id}`,active:false,updatedBy:actor.id}});
         await audit(tx,actor,company.id,"UPDATE","accounts",before.id,before,after);
       }
-      const accounts=await installChart(tx,actor,company.id,company.code);
+      const type=await tx.businessType.findUniqueOrThrow({where:{code:company.businessType}});
+      const accounts=await installChart(tx,actor,company.id,type.chartKind);
+      for(const [group,root] of [["1600","1000"],["2500","2000"]]) {
+        const before=await tx.account.findUniqueOrThrow({where:{id:accounts.get(group)!}});
+        if(before.parentId!==accounts.get(root)) {
+          const after=await tx.account.update({where:{id:before.id},data:{parentId:accounts.get(root),updatedBy:actor.id}});
+          await audit(tx,actor,company.id,"UPDATE","accounts",before.id,before,after);
+        }
+      }
       await saveSettings(tx,actor,company.id,{...current,receivableAccountId:accounts.get("1300"),payableAccountId:accounts.get("2100"),openingEquityAccountId:accounts.get("3990")});
     }
     if(calendarChange) {
@@ -80,8 +90,9 @@ export async function correctDemoChart(actor:Actor,companyCode:string) {
       const years=await tx.fiscalYear.findMany({where:{companyId:company.id,deletedAt:null}});
       if(years.length>1)throw new AppError(409,"Calendar correction requires at most one demo financial year");
       for(const before of years) {
-        const today=accountingToday(),year=today.getUTCFullYear();
-        const startDate=new Date(Date.UTC(year,0,1)),endDate=new Date(Date.UTC(year,11,31));
+        const today=accountingToday(),month=spec.startMonth-1;
+        const year=today.getUTCFullYear()-(today.getUTCMonth()<month?1:0);
+        const startDate=new Date(Date.UTC(year,month,1)),endDate=new Date(Date.UTC(year+1,month,0));
         if(before.isClosed||company.lockDate||await tx.period.findFirst({where:{companyId:company.id,fiscalYearId:before.id,isClosed:true}}))
           throw new AppError(409,"Calendar correction refuses locked dates and closed years/periods");
         if(await tx.journalEntry.findFirst({where:{companyId:company.id,fiscalYearId:before.id,OR:[{date:{lt:startDate}},{date:{gt:endDate}}]}}))

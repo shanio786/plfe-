@@ -31,7 +31,7 @@ export const L = {
   } as Record<string, string>,
   overview: { stats: { branches: "Branches", users: "Users", roles: "Roles", pendingApprovals: "Pending approvals", attachments: "Attachments" }, activity: "Recent activity", noActivity: "No activity recorded yet.", fy: "Current fiscal year", noFy: "No fiscal year defined", closed: "Closed", open: "Open", permissions: "Your permissions" },
   f: {
-    code: "Code", name: "Name", legalName: "Legal name", ntn: "NTN", strn: "STRN", address: "Address", phone: "Phone", email: "Email", currency: "Currency", fyStartMonth: "FY start month",
+    code: "Code", name: "Name", legalName: "Legal name", ntn: "NTN", strn: "STRN", address: "Address", phone: "Phone", email: "Email", currency: "Currency", fyStartMonth: "Financial year-end month", businessType:"Business type",
     active: "Active", lockDate: "Lock date", type: "Type", description: "Description", isOwner: "Owner (all companies)", mustChangePassword: "Must change password", password: "Initial password",
     roleIds: "Roles in this company", roles: "Roles", permissionCodes: "Permissions", docType: "Document type", prefix: "Prefix", format: "Format", padding: "Padding", startDate: "Start date",
     endDate: "End date", isClosed: "State", action: "Action", approverPermissionCode: "Approver permission", thresholdAmount: "Threshold (PKR)", requesterName: "Requested by", requestNote: "Request note",

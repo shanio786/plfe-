@@ -1,7 +1,7 @@
 import {Prisma} from "@prisma/client";
 import {randomUUID} from "node:crypto";
 import type {Actor} from "@/modules/core/model";
-const privateKeys = /^(password|passwordHash|password_hash|currentPassword|newPassword|sessionToken|token|tokenHash|token_hash|twoFactorSecretEncrypted|secret|cookie)$/i;
+const privateKeys = /^(password|confirm|credential|passwordHash|password_hash|currentPassword|newPassword|sessionToken|token|tokenHash|token_hash|twoFactorSecretEncrypted|secret|cookie)$/i;
 export function redact(value:unknown):any {
   if(value === undefined || value === null) return null;
   if(value instanceof Date) return value.toISOString();

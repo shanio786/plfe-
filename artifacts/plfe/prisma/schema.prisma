@@ -20,6 +20,9 @@ model Company {
   logoAttachmentId String?   @map("logo_attachment_id") @db.Uuid
   currency         String    @db.Char(3)
   fyStartMonth     Int       @map("fy_start_month")
+  businessType     String    @default("EVENTS") @map("business_type")
+  businessTypeRecord BusinessType @relation(fields:[businessType],references:[code],onDelete:Restrict)
+  counterpartyAccounts Account[] @relation("CounterpartyCompany")
   lockDate         DateTime? @map("lock_date") @db.Date
   active           Boolean   @default(true)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -53,6 +56,22 @@ model Company {
   attachments      Attachment[]
   auditLogs        AuditLog[]
   @@map("companies")
+}
+
+model BusinessType {
+  code String @id
+  name String
+  chartKind String @map("chart_kind")
+  companies Company[]
+  @@map("business_types")
+}
+
+model EnrollmentGuard {
+  id Int @id
+  failures Int @default(0)
+  lockedUntil DateTime? @map("locked_until") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  @@map("enrollment_guard")
 }
 
 model User {
@@ -385,6 +404,8 @@ model Account {
   isGroup Boolean @default(false) @map("is_group")
   isBank Boolean @default(false) @map("is_bank")
   isCash Boolean @default(false) @map("is_cash")
+  counterpartyCompanyId String? @map("counterparty_company_id") @db.Uuid
+  counterpartyCompany Company? @relation("CounterpartyCompany",fields:[counterpartyCompanyId],references:[id],onDelete:Restrict)
   active Boolean @default(true)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy String? @map("created_by") @db.Uuid

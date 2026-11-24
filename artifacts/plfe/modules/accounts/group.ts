@@ -4,7 +4,7 @@ import {provisionCompany} from "@/modules/core/service";
 import type {Actor} from "@/modules/core/model";
 import {initializeAccounts} from "./bootstrap";
 import {accountingToday} from "./time";
-import {groupCompanies,isRetailCompany} from "./template";
+import {groupCompanies} from "./initial-companies";
 import {ledgerLock,meta,type Tx} from "./model";
 
 export async function requireBootstrapOwner(tx:Tx,actor:Actor) {
@@ -18,15 +18,10 @@ export async function initializeGroup(tx:Tx,actor:Actor) {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(71007101)`;
   const result=[];
   for(const spec of groupCompanies) {
-    const aliases=spec.retail?["ZAHRA-HOME","ZH"]:[spec.code];
-    const matches=await tx.company.findMany({where:{code:{in:aliases},deletedAt:null}});
-    if(matches.length>1)throw new AppError(409,"Both ZH and ZAHRA-HOME exist; resolve the duplicate company explicitly");
+    const matches=await tx.company.findMany({where:{code:spec.code,deletedAt:null}});
     let company=matches[0];
     if(!company) {
-      company=await provisionCompany(tx,actor,{code:spec.code,name:spec.name,legalName:spec.name,currency:"PKR",fyStartMonth:spec.startMonth,active:true});
-      const role=await tx.role.findFirstOrThrow({where:{companyId:company.id,name:"Owner",deletedAt:null}});
-      const membership=await tx.userCompanyRole.create({data:{companyId:company.id,userId:actor.id,roleId:role.id,...meta(actor)}});
-      await audit(tx,actor,company.id,"CREATE","user_company_roles",membership.id,null,membership);
+      company=await provisionCompany(tx,actor,{code:spec.code,name:spec.name,legalName:spec.name,currency:"PKR",fyStartMonth:spec.startMonth,businessType:spec.businessType,active:true});
     }
     await ledgerLock(tx,company.id);
     if(company.name!==spec.name || company.legalName!==spec.name) {
@@ -44,10 +39,11 @@ export async function initializeGroup(tx:Tx,actor:Actor) {
   return result;
 }
 
-export async function initializeCompanyCalendar(tx:Tx,actor:Actor,company:{id:string;code:string;fyStartMonth:number}) {
+export async function initializeCompanyCalendar(tx:Tx,actor:Actor,company:{id:string;code:string;fyStartMonth:number;businessType:string}) {
+  const business=await tx.businessType.findUniqueOrThrow({where:{code:company.businessType}});
   for(const [code,name,type] of [
     ["HQ","Head Office","OFFICE"],
-    ...(isRetailCompany(company.code)?[["SR1","Showroom 1","SHOWROOM"],["SR2","Showroom 2","SHOWROOM"]]:[])
+    ...(business.chartKind==="RETAIL"?[["SR1","Showroom 1","SHOWROOM"],["SR2","Showroom 2","SHOWROOM"]]:[])
   ]) {
     if(!await tx.branch.findFirst({where:{companyId:company.id,code,deletedAt:null}})) {
       const branch=await tx.branch.create({data:{companyId:company.id,code:code!,name:name!,type:type!,...meta(actor)}});

@@ -29,7 +29,7 @@ test("Build order: twenty mixed posted documents per company and matching trial 
     assert.equal(report.summary.debit,report.summary.credit);
     assert.equal(report.summary.balance,"0.0000");
   }
-  assert.equal(await db.account.count({where:{companyId:f.first.id}}),chartTemplate(f.a).length);
+  assert.equal(await db.account.count({where:{companyId:f.first.id,counterpartyCompanyId:null}}),chartTemplate("EVENTS").length);
   const other=await db.account.findFirstOrThrow({where:{companyId:f.second.id,code:"4100"}});
   assert.notEqual(other.id,f.account("4100").id);
 });
@@ -37,7 +37,7 @@ test("Explicit demo and chart seeds are idempotent without duplicate postings",a
   await seedDemoBooks(f.owner,f.a);
   await db.$transaction(tx=>initializeAccounts(tx,f.owner,f.first.id));
   assert.equal(await db.journalEntry.count({where:{companyId:f.first.id,status:"POSTED"}}),20);
-  assert.equal(await db.account.count({where:{companyId:f.first.id}}),chartTemplate(f.a).length);
+  assert.equal(await db.account.count({where:{companyId:f.first.id,counterpartyCompanyId:null}}),chartTemplate("EVENTS").length);
 });
 test("Part-paid invoices, split receipts and later advance applications are exact",async()=>{
   const doc=await getAccountRecord(f.owner,f.a,"invoices",f.demo.partPaidInvoiceId);

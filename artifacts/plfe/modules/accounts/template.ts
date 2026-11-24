@@ -1,21 +1,10 @@
 type AccountType = "ASSET" | "LIABILITY" | "EQUITY" | "INCOME" | "EXPENSE";
 type Row = readonly [string, string, AccountType, string | null, string];
 
-// Group shorthand is distinct from the immutable, existing company code.
-export const groupCompanies = [
-  {code:"PLFE", name:"Pakistan Lifestyle Furniture Expo", startMonth:7, retail:false},
-  {code:"SE", name:"STYLE EVENTS", startMonth:7, retail:false},
-  {code:"LPE", name:"Lifestyle Property Expo", startMonth:7, retail:false},
-  {code:"LEV", name:"Lifestyle Event", startMonth:1, retail:false},
-  {code:"PFE", name:"Pak Furniture Expo", startMonth:1, retail:false},
-  {code:"ZAHRA-HOME", name:"Zahra Home", startMonth:1, retail:true}
-] as const;
-
-export const isRetailCompany = (code:string) => ["ZH","ZAHRA-HOME"].includes(code.toUpperCase());
-
 /** Separate company-owned rows; never share account IDs across companies. */
-export function chartTemplate(companyCode:string):Row[] {
-  const retail=isRetailCompany(companyCode);
+export function chartTemplate(chartKind:string):Row[] {
+  if(!["EVENTS","RETAIL"].includes(chartKind))throw new Error("Unsupported business chart template");
+  const retail=chartKind==="RETAIL";
   const rows:Row[]=[
     ["1000","Assets","ASSET",null,"group"],
     ["1100","Cash in hand","ASSET","1000","group"],
@@ -90,12 +79,6 @@ export function chartTemplate(companyCode:string):Row[] {
     ["7100","Bank charges","EXPENSE","7000",""],
     ...(retail ? [["7200","POS cash differences","EXPENSE","7000",""]] as Row[] : [])
   ];
-  // Stable suffixes across every company; exclude only the company's own row.
-  groupCompanies.forEach((other,index)=>{
-    if(other.code===companyCode || isRetailCompany(other.code)&&retail)return;
-    rows.push([`160${index+1}`,`Due from ${other.name}`,"ASSET","1600",""]);
-    rows.push([`250${index+1}`,`Due to ${other.name}`,"LIABILITY","2500",""]);
-  });
   return rows;
 }
 export const journalTemplate=[

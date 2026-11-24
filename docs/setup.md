@@ -37,9 +37,11 @@ they differ.
 5. Set `APP_URL` to the exact external HTTPS origin, e.g.
    `https://portal.example.com`. Set `UPLOAD_DIR` to an absolute directory owned by
    the app's OS user, with mode 0700.
-6. Put `SEED_OWNER_EMAIL`, `SEED_OWNER_NAME`, and `SEED_OWNER_PASSWORD` in that
-   operator-only `.env.maintenance`. The password must meet the configured policy.
-   The seed never prints it. Both environment files are ignored by Git.
+6. Generate an unpredictable enrollment credential (32 random bytes, encoded as
+   at least 43 base64url characters) in the operator's password manager. Set
+   `BOOTSTRAP_ENROLLMENT_TOKEN` privately in the app environment; never send it in
+   chat, a URL, logs or source control. Optionally bind enrollment to an email with
+   `BOOTSTRAP_OWNER_EMAIL`. Do not set a seed/default login password.
 7. From the repository root:
 
    ```sh
@@ -47,15 +49,16 @@ they differ.
    npm run build
    npm run db:migrate
    # Apply deploy/runtime-grants.sql as the migration role.
-   npm run db:seed
    npm start
    ```
 
-   The first seed creates PLFE and ZAHRA HOME, twelve monthly periods per
-   financial year, one initial branch per company, the eleven template roles
-   in each company, approval rules, and an invoice numbering configuration.
-   No invoices, accounts, journal entries or other later-phase records exist.
-   Business numbering is not consumed by seeding.
+   Visit `/enroll` over HTTPS. Enter the private enrollment credential and choose
+   your own name, email and login password. Enrollment and all six starting
+   companies are created in one transaction; failure leaves no partial Owner.
+   Each company receives Head Office, eleven roles, its fiscal year/twelve
+   periods, approval defaults, numbering, posting settings and its business-type
+   chart. Retail receives two showrooms. No financial documents or opening
+   balances are fabricated and no document numbers are consumed.
 8. Run `npm run worker` as a second systemd service alongside the app. Phase 1
    schedules expired-session cleanup only. Use `WorkingDirectory` equal to the
    repository root and the same environment file for both units.
@@ -63,9 +66,12 @@ they differ.
    use the supplied TLS template with `proxy_pass http://127.0.0.1:3000` rather
    than Docker's `http://app:3000`. Replace the example hostname/certificate paths.
    Only Nginx should be able to reach the application port.
-10. Log in with the seed Owner. Change the temporary password immediately.
-    Remove seed passwords from the operator file after seeding. They must never
-    be in the long-lived runtime environment. Re-running the seed does not reset users.
+10. Sign in with your chosen credentials. Remove the enrollment credential from
+    the app environment and restart it. Enrollment remains permanently closed
+    after completion, even if its credential is left configured. It serializes
+    concurrent attempts and locks failed attempts after five failures for fifteen
+    minutes. `npm run db:seed` is now repeat-safe configuration initialization
+    for an already-enrolled Owner, never identity or password creation/reset.
 
 `npm run build` does not need a reachable database. Migrations are explicit,
 committed SQL files, applied with `prisma migrate deploy`, never `db push`.
@@ -89,7 +95,7 @@ Use an unprivileged OS account; deny password SSH login and allow only ports
 The Docker definition is a **VPS deliverable**; it is not required to develop the
 application. The four long-lived services are app, worker, postgres and nginx.
 PostgreSQL has no published host port, and uploads/database files use named volumes.
-A one-shot `maintenance` profile runs migrations/seeding with operator credentials;
+A one-shot `maintenance` profile runs migrations/configuration with operator credentials;
 it is not a runtime service. App/worker receive an explicit environment allowlist,
 not the complete host `.env`, so database-owner and seed credentials stay out.
 
@@ -97,17 +103,18 @@ not the complete host `.env`, so database-owner and seed credentials stay out.
 2. Copy `.env.example` to `.env`. Set `POSTGRES_DB`, `POSTGRES_USER` and a strong
    `POSTGRES_PASSWORD`; use the same database password in the migration URL.
    Database hostnames in both database URLs must be `postgres`, not localhost.
-3. Set `MIGRATION_DATABASE_URL` to the database-owner URL, and fill Owner seed
-   values in the host `.env`. Set `DATABASE_URL` to the intended limited
+3. Set `MIGRATION_DATABASE_URL` to the database-owner URL, and supply the private
+   one-use `BOOTSTRAP_ENROLLMENT_TOKEN` in the host `.env`. Only the app receives
+   this enrollment credential, not the worker or maintenance service.
+   Set `DATABASE_URL` to the intended limited
    `plfe_app` role's URL, even before that role exists. Never start app/worker
    with the database-owner URL.
-4. Build, migrate and seed explicitly:
+4. Build and migrate explicitly:
 
    ```sh
    docker compose --profile maintenance build
    docker compose up -d postgres
    docker compose --profile maintenance run --rm maintenance npm run db:migrate
-   docker compose --profile maintenance run --rm maintenance npm run db:seed
    ```
 
 5. Create the `plfe_app` login through a private `psql` session:
@@ -172,13 +179,12 @@ acceptance check below.
 **“Two companies exist. A user with a role in only one cannot open the other by
 changing the URL. Every change shows in the audit log. The app runs on the VPS.”**
 
-1. Log in as Owner and complete the forced password change.
+1. Enroll the initial Owner at `/enroll`, then sign in with your chosen password.
 2. Confirm PLFE and ZAHRA HOME exist. Open each company through the company
    switcher. The address includes `/PLFE/admin` or `/ZAHRA-HOME/admin`.
 3. In PLFE → Users, create a test administrator with the PLFE Admin role only.
    Use a temporary password known only to the tester. Do not add a ZAHRA HOME role.
-   Optional seed variables `SEED_TEST_EMAIL` and `SEED_TEST_PASSWORD` can create
-   this account; neither has a default password.
+   Create it through the permission-checked Users screen, never a seed password.
 4. In a separate browser/private window, log in as that user, change the temporary
    password, and open `/PLFE/admin/branches`.
 5. Change the address to `/ZAHRA-HOME/admin/branches`, then try its users, audit and

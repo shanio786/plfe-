@@ -10,7 +10,7 @@ async function main() {
   if(!owner)throw new AppError(409,"An active Owner must finish the initial password change before Accounts initialization");
   await db.permission.createMany({data:permissionCodes.map(code=>({code,description:code.split(".").join(" ")})),skipDuplicates:true});
   if(process.argv.includes("--correct-demo-chart")) {
-    const existing=await db.company.findMany({where:{code:{in:["PLFE","SE","LPE","LEV","PFE","ZAHRA-HOME","ZH"]},deletedAt:null}});
+    const existing=await db.company.findMany({where:{deletedAt:null}});
     for(const company of existing) {
       const changed=await correctDemoChart(owner,company.code);
       process.stdout.write(`${company.code}: ${changed?"demo-only chart/calendar correction applied; original postings retained":"no correction needed"}.\n`);
@@ -18,8 +18,9 @@ async function main() {
   }
   const companies=await db.$transaction(tx=>initializeGroup(tx,owner),{timeout:120000,maxWait:30000});
   for(const company of companies) {
-    // Only the original two companies receive the explicit acceptance fixture.
-    if(process.argv.includes("--demo")&&["PLFE","ZAHRA-HOME","ZH"].includes(company.code)) {
+    // Demo targets are explicit operator input, never runtime company-code logic.
+    const targets=process.env.DEMO_COMPANY_CODES?.split(",").map(v=>v.trim()).filter(Boolean)??[];
+    if(process.argv.includes("--demo")&&targets.includes(company.code)) {
       await seedDemoBooks(owner,company.code);
       const report=await accountsReport(owner,company.code,"trial-balance",{});
       if(!report.summary.balanced)throw new Error("Seeded trial balance does not balance");
