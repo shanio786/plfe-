@@ -1,7 +1,13 @@
-# PLFE Business System — Phase 1
+# PLFE Business System — Phase 2 Accounts
 
 Portable Next.js 15 / TypeScript / PostgreSQL 16 / Prisma foundation.
 No platform-specific runtime, authentication or storage.
+
+Six independently scoped group companies use the agreed Events/Retail charts and
+June/December financial years. Existing company codes and identities are retained.
+Phase 3 is not authorized. See [Phase 2 decisions](docs/phase2-decisions.md) and
+[Accounts initialization/correction](docs/phase2-acceptance.md) before changing or
+re-seeding any accounting data.
 
 ```sh
 cp .env.example .env

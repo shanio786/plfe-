@@ -12,8 +12,9 @@ core. They moved VPS deployment to Phase 9, so deployment must no longer block
 earlier phases or trigger requests for server details.
 
 **How to apply:** Read the original plan plus the approved corrections before
-changing business rules. Odoo migration is opening balances only; each company
-has a separate chart seeded from one shared template in Phase 2.
+changing business rules. Odoo migration is opening balances only. The authorized
+six-company correction replaces the earlier single-chart assumption with
+separate Events/Retail templates; see `docs/phase2-decisions.md` for the overrides.
 Do not introduce hosted-platform runtime dependencies: the user's intended home
 is their Linux VPS, with both direct npm/Nginx and Docker Compose delivery.
 Keep those paths working without requesting VPS details until Phase 9.

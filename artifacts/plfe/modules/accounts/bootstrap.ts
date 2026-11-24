@@ -1,9 +1,22 @@
 import {audit} from "@/lib/audit";
 import type {Actor} from "@/modules/core/model";
 import {authorize,ledgerLock,meta,type Tx} from "./model";
-import {expoChart,journalTemplate,accountsDocumentTypes} from "./template";
+import {chartTemplate,journalTemplate,accountsDocumentTypes} from "./template";
 import {accountsPermissions,accountsReadPermissions} from "./permissions";
 import {AppError} from "@/lib/errors";
+
+export async function installChart(tx:Tx,actor:Actor,companyId:string,companyCode:string) {
+  const accounts=new Map<string,string>();
+  for(const [code,name,type,parent,flag] of chartTemplate(companyCode)) {
+    let a=await tx.account.findFirst({where:{companyId,code:{equals:code,mode:"insensitive"},deletedAt:null}});
+    if(!a) {
+      a=await tx.account.create({data:{companyId,code,name,type,parentId:parent?accounts.get(parent):null,isGroup:flag==="group",isCash:flag==="cash",isBank:flag==="bank",...meta(actor)}});
+      await audit(tx,actor,companyId,"CREATE","accounts",a.id,null,a);
+    }
+    accounts.set(code,a.id);
+  }
+  return accounts;
+}
 
 /** Idempotent first install; never resets edited charts, mappings or role grants. */
 export async function initializeAccounts(tx:Tx,actor:Actor,companyId:string) {
@@ -15,15 +28,7 @@ export async function initializeAccounts(tx:Tx,actor:Actor,companyId:string) {
   const current=await tx.accountingSettings.findFirst({where:{companyId,deletedAt:null}});
   if(current)return current;
   const company=await tx.company.findFirstOrThrow({where:{id:companyId,deletedAt:null}});
-  const accounts=new Map<string,string>(),journals=new Map<string,string>();
-  for(const [code,name,type,parent,flag] of expoChart) {
-    let a=await tx.account.findFirst({where:{companyId,code:{equals:code,mode:"insensitive"},deletedAt:null}});
-    if(!a) {
-      a=await tx.account.create({data:{companyId,code,name,type,parentId:parent?accounts.get(parent):null,isGroup:flag==="group",isCash:flag==="cash",isBank:flag==="bank",...meta(actor)}});
-      await audit(tx,actor,companyId,"CREATE","accounts",a.id,null,a);
-    }
-    accounts.set(code,a.id);
-  }
+  const accounts=await installChart(tx,actor,companyId,company.code),journals=new Map<string,string>();
   for(const [code,name,type] of journalTemplate) {
     let j=await tx.journal.findFirst({where:{companyId,code:{equals:code,mode:"insensitive"},deletedAt:null}});
     if(!j){j=await tx.journal.create({data:{companyId,code,name,type,...meta(actor)}});await audit(tx,actor,companyId,"CREATE","journals",j.id,null,j);}
@@ -52,7 +57,7 @@ export async function initializeAccounts(tx:Tx,actor:Actor,companyId:string) {
     const changed=await tx.approvalRule.update({where:{id:rule.id,companyId},data:{approverPermissionCode:"accounts.approval.approve",updatedBy:actor.id}});
     await audit(tx,actor,companyId,"UPDATE","approval_rules",rule.id,rule,changed);
   }
-  const s=await tx.accountingSettings.create({data:{companyId,receivableAccountId:accounts.get("1200")!,payableAccountId:accounts.get("2100")!,openingEquityAccountId:accounts.get("3900")!,salesJournalId:journals.get("SALES")!,purchaseJournalId:journals.get("PURCHASE")!,generalJournalId:journals.get("GENERAL")!,cashJournalId:journals.get("CASH")!,bankJournalId:journals.get("BANK")!,...meta(actor)}});
+  const s=await tx.accountingSettings.create({data:{companyId,receivableAccountId:accounts.get("1300")!,payableAccountId:accounts.get("2100")!,openingEquityAccountId:accounts.get("3990")!,salesJournalId:journals.get("SALES")!,purchaseJournalId:journals.get("PURCHASE")!,generalJournalId:journals.get("GENERAL")!,cashJournalId:journals.get("CASH")!,bankJournalId:journals.get("BANK")!,...meta(actor)}});
   await audit(tx,actor,companyId,"CREATE","accounting_settings",s.id,null,s);
   return s;
 }

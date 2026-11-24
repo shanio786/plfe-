@@ -77,9 +77,9 @@ export function RecordForm({
                   )} />
                 ) : f.kind === "select" ? (
                   <Controller control={form.control} name={f.name} render={({ field }) => (
-                    <Select value={field.value ? String(field.value) : undefined} onValueChange={field.onChange}>
+                    <Select value={field.value ? String(field.value) : f.name==="province"?"__none__":undefined} onValueChange={v=>field.onChange(v==="__none__"?"":v)}>
                       <SelectTrigger id={f.name} data-testid={`select-${f.name}`}><SelectValue placeholder={L.common.none} /></SelectTrigger>
-                      <SelectContent>{(f.options ?? []).map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{f.name==="province"&&<SelectItem value="__none__">{L.common.none}</SelectItem>}{(f.options ?? []).map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                     </Select>
                   )} />
                 ) : f.kind === "multi" ? (

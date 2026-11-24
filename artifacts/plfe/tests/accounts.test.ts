@@ -13,6 +13,7 @@ import {postDocument} from "../modules/accounts/documents";
 import {ledgerLock} from "../modules/accounts/model";
 import {seedDemoBooks} from "../modules/accounts/demo";
 import {initializeAccounts} from "../modules/accounts/bootstrap";
+import {chartTemplate} from "../modules/accounts/template";
 import {accountsFixture} from "./helpers/accounts-fixture";
 let f:Awaited<ReturnType<typeof accountsFixture>>;
 const denied=(e:any)=>e.status===403;
@@ -28,7 +29,7 @@ test("Build order: twenty mixed posted documents per company and matching trial 
     assert.equal(report.summary.debit,report.summary.credit);
     assert.equal(report.summary.balance,"0.0000");
   }
-  assert.equal(await db.account.count({where:{companyId:f.first.id}}),37);
+  assert.equal(await db.account.count({where:{companyId:f.first.id}}),chartTemplate(f.a).length);
   const other=await db.account.findFirstOrThrow({where:{companyId:f.second.id,code:"4100"}});
   assert.notEqual(other.id,f.account("4100").id);
 });
@@ -36,7 +37,7 @@ test("Explicit demo and chart seeds are idempotent without duplicate postings",a
   await seedDemoBooks(f.owner,f.a);
   await db.$transaction(tx=>initializeAccounts(tx,f.owner,f.first.id));
   assert.equal(await db.journalEntry.count({where:{companyId:f.first.id,status:"POSTED"}}),20);
-  assert.equal(await db.account.count({where:{companyId:f.first.id}}),37);
+  assert.equal(await db.account.count({where:{companyId:f.first.id}}),chartTemplate(f.a).length);
 });
 test("Part-paid invoices, split receipts and later advance applications are exact",async()=>{
   const doc=await getAccountRecord(f.owner,f.a,"invoices",f.demo.partPaidInvoiceId);
@@ -51,8 +52,8 @@ test("Deferred database trigger rejects unequal debit/credit at COMMIT, not only
   await assert.rejects(()=>db.$transaction(async tx=>{
     await tx.journalEntry.create({data:{id,companyId:f.first.id,journalId:f.journal.id,date:new Date(f.date),sourceType:"DATABASE_TEST",sourceId:id}});
     await tx.journalLine.createMany({data:[
-      {companyId:f.first.id,entryId:id,accountId:f.account("1120").id,lineNo:1,debit:"10.0000",credit:"0.0000"},
-      {companyId:f.first.id,entryId:id,accountId:f.account("3900").id,lineNo:2,debit:"0.0000",credit:"9.0000"}
+      {companyId:f.first.id,entryId:id,accountId:f.account("1201").id,lineNo:1,debit:"10.0000",credit:"0.0000"},
+      {companyId:f.first.id,entryId:id,accountId:f.account("3990").id,lineNo:2,debit:"0.0000",credit:"9.0000"}
     ]});
     await tx.journalEntry.update({where:{id,companyId:f.first.id},data:{status:"POSTED",fiscalYearId:f.fiscal.id,number:`DB-${id}`}});
     reachedCommit=true;
@@ -74,7 +75,7 @@ test("Posted entries and lines cannot be changed, deleted, soft-deleted or trunc
     ()=>db.journalEntry.delete({where:{id:entry.id,companyId:f.first.id}}),
     ()=>db.journalLine.update({where:{id:entry.lines[0]!.id,companyId:f.first.id},data:{memo:"Tampered"}}),
     ()=>db.journalLine.delete({where:{id:entry.lines[0]!.id,companyId:f.first.id}}),
-    ()=>db.journalLine.create({data:{companyId:f.first.id,entryId:entry.id,accountId:f.account("1120").id,lineNo:99,debit:"1.0000",credit:"0.0000"}}),
+    ()=>db.journalLine.create({data:{companyId:f.first.id,entryId:entry.id,accountId:f.account("1201").id,lineNo:99,debit:"1.0000",credit:"0.0000"}}),
     ()=>db.$executeRawUnsafe("TRUNCATE journal_lines"),
     ()=>db.$executeRawUnsafe("TRUNCATE journal_entries CASCADE")
   ])await assert.rejects(action);
@@ -94,7 +95,7 @@ test("Company scope protects lists, details, exports, reports, mutations and for
   await assert.rejects(()=>listAccounts(f.gate,f.a,"invoices",{}),denied);
 });
 test("Composite accounting foreign keys reject another company's account",async()=>{
-  const account=await db.account.findFirstOrThrow({where:{companyId:f.second.id,code:"1120"}});
+  const account=await db.account.findFirstOrThrow({where:{companyId:f.second.id,code:"1201"}});
   await assert.rejects(()=>db.$transaction(async tx=>{
     const id=randomUUID();
     await tx.journalEntry.create({data:{id,companyId:f.first.id,journalId:f.journal.id,date:new Date(f.date),sourceType:"FK_TEST",sourceId:id}});
@@ -141,17 +142,17 @@ test("Build order: cancelling an invoice retains the original and posts one exac
   assert.equal((await accountsReport(f.owner,f.a,"trial-balance",{})).summary.balanced,true);
 });
 test("High-value payments and voucher outflows require independent approval",async()=>{
-  const payment=await saveAccountRecord(f.owner,f.a,"payments",{direction:"PAYMENT",method:"BANK",partyId:f.demo.supplierId,date:f.date,settlementAccountId:f.account("1120").id,amount:"500001.0000"});
+  const payment=await saveAccountRecord(f.owner,f.a,"payments",{direction:"PAYMENT",method:"BANK",partyId:f.demo.supplierId,date:f.date,settlementAccountId:f.account("1201").id,amount:"500001.0000"});
   const request=await saveAccountRecord(f.owner,f.a,"payments",{operation:"post",id:payment.id});
   assert.equal(request.approvalRequested,true);
   assert.equal(await db.journalEntry.count({where:{companyId:f.first.id,sourceId:payment.id}}),0);
   await saveRecord(f.approver,f.a,"approvals",{id:request.approvalId,operation:"approve"});
   assert.equal((await getAccountRecord(f.owner,f.a,"payments",payment.id)).status,"POSTED");
-  const voucher=await saveAccountRecord(f.owner,f.a,"entries",{kind:"BANK",journalId:f.journal.id,date:f.date,lines:[{accountId:f.account("5100").id,debit:"500001.0000",credit:"0.0000"},{accountId:f.account("1120").id,debit:"0.0000",credit:"500001.0000"}]});
+  const voucher=await saveAccountRecord(f.owner,f.a,"entries",{kind:"BANK",journalId:f.journal.id,date:f.date,lines:[{accountId:f.account("5100").id,debit:"500001.0000",credit:"0.0000"},{accountId:f.account("1201").id,debit:"0.0000",credit:"500001.0000"}]});
   assert.equal((await saveAccountRecord(f.owner,f.a,"entries",{operation:"post",id:voucher.id})).approvalRequested,true);
 });
 test("Over-allocation rolls back and applying an advance never edits the posted entry",async()=>{
-  const payment=await db.payment.findFirstOrThrow({where:{companyId:f.first.id,narration:"TEST-P2/11-receipt-with-advance"}});
+  const payment=await db.payment.findFirstOrThrow({where:{companyId:f.first.id,narration:"TEST-P2/CORRECTED/11-receipt-with-advance"}});
   const old=await db.paymentAllocation.findMany({where:{companyId:f.first.id,paymentId:payment.id,deletedAt:null}});
   const entry=await db.journalEntry.findFirstOrThrow({where:{companyId:f.first.id,id:payment.entryId!}});
   const draft=await invoice("6000.0000");await saveAccountRecord(f.owner,f.a,"invoices",{operation:"post",id:draft.id});

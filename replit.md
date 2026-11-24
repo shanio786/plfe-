@@ -44,3 +44,16 @@ services. Owners are global flags, not merely a company role named Owner.
 
 See `docs/setup.md`, `docs/modules.md` and `docs/backup.md` for deployment,
 acceptance, implementation boundaries and operations.
+
+## Authorized Phase 2 correction
+
+The group has six companies and two chart templates. PLFE, SE and LPE close in
+June; LEV, PFE and Zahra Home close in December. Zahra Home is the only retailer
+and has two showrooms. Keep its existing `ZAHRA-HOME` code; `ZH` is shorthand.
+Read the correction in `docs/phase2-decisions.md`. Do not begin Phase 3.
+
+`npm run db:seed:accounts` initializes all six without financial demo documents.
+An existing condensed chart/calendar requires explicit, guarded
+`npm run db:seed:accounts -- --correct-demo-chart`; add `--demo` only to reseed
+the original two companies. This reverses TEST-P2 postings and retains old history;
+it never hard-deletes books or resets document counters.

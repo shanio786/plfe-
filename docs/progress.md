@@ -1,5 +1,72 @@
 # PLFE progress
 
+## Current Phase 2 correction — 2026-11-24
+
+### Implemented and verified
+
+- Added repeat-safe six-company initialization: PLFE, SE, LPE, LEV, PFE and
+  Zahra Home. The existing `ZAHRA-HOME` code is preserved (`ZH` is shorthand).
+  Initialization preserves existing users, password hashes and memberships.
+  Each company has its own roles, Head Office, year/twelve periods, numbering,
+  approval defaults, accounting settings and chart; Zahra has two showrooms.
+- Added separate agreed Events and Retail templates, stable group-company
+  due-from/to children, separate cash/bank/location accounts, retained earnings
+  at 3900 and opening-balance equity at 3990. Group accounts remain non-posting.
+- Added the explicit Owner-only `--correct-demo-chart` maintenance operation.
+  It refuses non-TEST-P2 financial history and opening balances, preserves
+  immutable entries/lines, cancels sources and posts linked reversals through
+  shared services, and retains zero-balance inactive legacy chart rows.
+  Number counters, normal approval defaults and database protections stay intact.
+  The narrow demo-calendar correction refuses locked/closed or multi-year books.
+- Kept replacement demos behind the separate `--demo` option. They use the
+  correct chart for each original company; the four new companies receive no
+  demo documents during ordinary initialization or demo reseeding.
+- Added optional nullable province, database/service validation, create/edit
+  selection with None to clear, list/detail display and Excel export. Existing
+  records are not backfilled. No tax rules, POS workflow or Phase 3 work started.
+- Installed the existing standalone npm dependencies without stack changes.
+  Prisma generation/type checking and the optimized production build passed.
+- Ran both complete automated suites on a newly created isolated
+  `plfe_correction_test` database: **24/24 Phase 1** and **22/22 Phase 2** checks
+  passed. The six added correction tests cover preserved identities/memberships,
+  immutable originals, sequence preservation, six calendars/setups, repeat-safe
+  seeding, chart structure, province persistence/clearing/export, real-data
+  refusal, Owner enforcement and lock-date rollback.
+- Both reconstructed legacy-company fixtures balance after correction and
+  twenty replacement postings each: **PLFE debit/credit PKR 3,818,900.0000**;
+  **ZAHRA-HOME debit/credit PKR 3,818,900.0000**. These are isolated test
+  results, not a claim that the unavailable original books have been converted.
+- Created the missing local PostgreSQL cluster and applied the four committed
+  schema migrations to its empty `plfe` database. The web server and cleanup
+  worker start cleanly. The sign-in page was visually verified; authenticated
+  party screens were not browser-verified. Foundation HTTP authentication,
+  company-scope and session checks passed against isolated test identities.
+
+### Blocked / not done
+
+- The GitHub import did not include the original local PostgreSQL files or the
+  original Owner/company data. The configured local `plfe` database is newly
+  initialized and empty of business identities/data; it is **not** the earlier
+  seeded development database. No replacement Owner credential was invented,
+  and no existing user's credential or membership was changed.
+- Therefore applying the six-company/chart correction and reseeding to the
+  user's actual original two companies remains blocked until their database
+  is restored or connected. No production or original-data trial balance has
+  been claimed as verified.
+- This progress update precedes the correction commit/push; the final handover
+  reports the actual GitHub push outcome.
+
+### Next within authorized scope
+
+1. Restore/connect the original database without replacing its identities.
+2. Apply committed migrations, then explicitly run
+   `npm run db:seed:accounts -- --correct-demo-chart --demo`.
+3. Confirm all six setups and both original-company trial balances against that
+   database, and finish signed-in party-screen acceptance.
+4. Stop within Phase 2. Phase 3 and VPS deployment remain unauthorized/deferred.
+
+## Historical progress before the import
+
 ## Done
 
 - **Phase 1 complete:** the user manually tested the foundation and confirmed it
@@ -94,8 +161,9 @@
 
 ## Half-done
 
-None in the authorized Phase 2 implementation scope. Signed-in browser
-acceptance remains an unverified manual/UI check, not a passed test.
+The historical Phase 2 implementation below predates this import. The current
+correction and missing-original-database blocker are recorded above. Signed-in
+browser acceptance remains unverified, not a passed test.
 
 ## Deferred to Phase 9
 

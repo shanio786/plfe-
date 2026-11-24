@@ -36,7 +36,7 @@ export const L = {
     roleIds: "Roles in this company", roles: "Roles", permissionCodes: "Permissions", docType: "Document type", prefix: "Prefix", format: "Format", padding: "Padding", startDate: "Start date",
     endDate: "End date", isClosed: "State", action: "Action", approverPermissionCode: "Approver permission", thresholdAmount: "Threshold (PKR)", requesterName: "Requested by", requestNote: "Request note",
     decisionNote: "Decision note", requestedAt: "Requested", tableName: "Table", recordId: "Record", actorName: "Actor", createdAt: "When", ip: "IP", userName: "User", lastSeenAt: "Last seen",
-    parentId: "Parent group", isGroup: "Group (holds sub-accounts)", isBank: "Bank account", isCash: "Cash account", companyName: "Company name", city: "City", creditDays: "Credit days",
+    parentId: "Parent group", isGroup: "Group (holds sub-accounts)", isBank: "Bank account", isCash: "Cash account", companyName: "Company name", city: "City", province: "Province", creditDays: "Credit days",
     isCustomer: "Customer", isSupplier: "Supplier", isExhibitor: "Exhibitor", isSponsor: "Sponsor", isStaff: "Staff", openingBalance: "Opening balance (PKR)", openingSide: "Opening side",
     receivableAccountId: "Receivables control", payableAccountId: "Payables control", openingEquityAccountId: "Opening balance equity", salesJournalId: "Sales journal", purchaseJournalId: "Purchase journal",
     generalJournalId: "General journal", cashJournalId: "Cash journal", bankJournalId: "Bank journal",

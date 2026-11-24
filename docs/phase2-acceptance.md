@@ -6,7 +6,7 @@ supported, but actual VPS/Docker operation has not been represented as tested.
 
 ## Automated Build-order test
 
-Use PostgreSQL 16 and Node.js 22 with the application's dependencies installed.
+Use PostgreSQL 16 and Node.js 20 or later with the application's dependencies installed.
 Create a separate disposable database whose name ends in `_test`, and put its
 connection URL in the untracked `.env` as `TEST_DATABASE_URL`.
 
@@ -35,14 +35,18 @@ npm run test:phase2
 
 The command validates the `_test` suffix, generates Prisma, applies the committed
 migrations to that database, creates unique synthetic companies/users, seeds
-twenty mixed documents per company and runs sixteen assertions. It does not use
+twenty mixed documents per company and runs the existing sixteen accounting
+checks plus six company/chart/province correction checks. It does not use
 the development `PLFE_DATABASE_URL` for test writes. Test uploads go to a separate
 ignored `var/test-uploads/accounts` directory. No real Owner credential is read,
 reset or printed. The separate foundation regression command is:
 
 ```bash
+npm run build
 npm run test:phase1
 ```
+
+The foundation HTTP checks start an isolated production server, so build first.
 
 The three Build-order outcomes are explicitly tested:
 
@@ -66,10 +70,35 @@ npm run db:migrate
 npm run db:seed:accounts
 ```
 
-This creates the shared-template chart independently in PLFE and ZAHRA HOME,
-journals, departments, numbering, posting settings and module permission grants.
-It does **not** add financial test documents. Re-running initialization does not
-reset company edits. New companies initialize their own chart automatically.
+This initializes all six group companies with independent roles, Head Office,
+their current financial year and twelve monthly periods, journals, departments,
+numbering and posting settings. PLFE/SE/LPE close in June; LEV/PFE/Zahra Home
+close in December. Zahra Home retains its existing `ZAHRA-HOME` code and gets two
+showroom branches. The five events companies use the agreed Events chart; Zahra
+Home uses Retail. It does **not** add financial test documents. Re-running
+initialization does not reset credentials, memberships, edited charts, posting
+settings or counters. Existing wrong charts/calendars require the explicit
+correction below; ordinary initialization never silently replaces them.
+
+For the already-authorized replacement of the old condensed TEST-P2-only books:
+
+```bash
+npm run db:seed:accounts -- --correct-demo-chart --demo
+```
+
+The correction refuses non-demo financial history (including drafts), party
+opening balances, locked posting dates and closed periods. It is an Owner-only
+operator maintenance service, not an HTTP cancellation path. It retains original
+posted entries and source documents and uses shared reversal/cancellation
+services to zero old accounts. Old chart rows remain inactive with `LEGACY-`
+codes; original entries and lines remain unchanged. Unposted demo drafts are
+archived, not hard-deleted. Existing approval defaults remain unchanged; ordinary
+document cancellation still requires the independent approval workflow.
+
+The limited old Zahra July-calendar correction preserves the fiscal ID and all
+number counters, archives old period configuration and creates twelve calendar
+months. It refuses multi-year demo histories or postings outside the replacement
+calendar year rather than changing any posted entry.
 
 Only in empty development books:
 
@@ -77,10 +106,13 @@ Only in empty development books:
 npm run db:seed:accounts -- --demo
 ```
 
-This explicit option adds twenty posted documents per company, narrated
-`TEST-P2/…`, plus two clearly named test parties and an attached synthetic expense
-bill. It refuses to mix with non-demo posted history. Both current development
-companies already have this fixture; do not treat it as migrated Odoo data.
+This explicit option adds twenty posted documents to each of the original two
+companies, narrated `TEST-P2/CORRECTED/…`, plus two clearly named test parties and an
+attached synthetic expense bill. The four new companies remain free of demo
+financial documents. It refuses to mix with non-demo financial history. Do not
+treat these synthetic fixtures as migrated Odoo data. A corrected demo company
+retains original/reversal entries in addition to the twenty replacement postings;
+its trial balance therefore includes those historical debit/credit movements.
 Never delete posted demo entries to clean real books; use a fresh database for
 go-live or reverse appropriate documents with an audit trail.
 
@@ -92,14 +124,14 @@ change. Even an Owner cannot approve their own request.
 
 1. Select PLFE, open **Accounts → Trial balance**, and confirm that it agrees.
    Switch to ZAHRA HOME and confirm its independent chart and balance.
-2. In PLFE invoices, find the `TEST-P2/03-invoice` document for **TEST DATA — Expo
-   exhibitor**. Its total is PKR 100,000, paid is PKR 40,000 and outstanding is
+2. In PLFE invoices, find the `TEST-P2/CORRECTED/03-invoice` document for the
+   **TEST DATA** customer. Its total is PKR 100,000, paid is PKR 40,000 and outstanding is
    PKR 60,000, with **Part paid** status. Its linked receipt is
-   `TEST-P2/10-part-receipt`.
-3. Inspect `TEST-P2/11-receipt-with-advance`: PKR 25,000 received, PKR 20,000
-   allocated and PKR 5,000 left as an advance. `TEST-P2/20-advance-applied` shows
-   a later PKR 10,000 advance application to the showroom invoice.
-4. Open `TEST-P2/05-cancellation-candidate`, an unallocated PKR 25,000 invoice.
+   `TEST-P2/CORRECTED/10-part-receipt`.
+3. Inspect `TEST-P2/CORRECTED/11-receipt-with-advance`: PKR 25,000 received, PKR 20,000
+   allocated and PKR 5,000 left as an advance. `TEST-P2/CORRECTED/20-advance-applied` shows
+   a later PKR 10,000 advance application to a sales invoice.
+4. Open `TEST-P2/CORRECTED/05-cancellation-candidate`, an unallocated PKR 25,000 invoice.
    Follow its journal link and note the original entry number. Request
    cancellation with a reason. The invoice remains posted pending approval.
 5. In the second user's **Admin → Approvals**, approve that request. Reload the
@@ -109,6 +141,10 @@ change. Even an Owner cannot approve their own request.
 6. Return to the trial balance and ledger. Both original and reversal appear;
    the trial balance still agrees. Export the report to Excel and drill through
    a ledger row back to its entry/source.
+7. Open Parties, create or edit a party, select any of the five Pakistani
+   provinces and save. Reopen and verify the selection; choose None to clear it.
+   Verify the province in the list, details and Excel export. Existing records
+   remain blank until explicitly edited; province is not mandatory.
 
 Posting/cancellation needs an open fiscal year and monthly period covering the
 date. If time has advanced beyond the seeded year, create the next year through

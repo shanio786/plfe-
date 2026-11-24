@@ -415,6 +415,7 @@ model Party {
   phone String?
   email String?
   city String?
+  province String?
   ntn String?
   address String?
   creditDays Int @default(0) @map("credit_days")

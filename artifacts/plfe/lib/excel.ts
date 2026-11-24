@@ -3,7 +3,7 @@ export async function excelBuffer(rows:Record<string,unknown>[],name:string) {
   const workbook=new ExcelJS.Workbook();
   workbook.creator="PLFE Business System";
   const sheet=workbook.addWorksheet(name.slice(0,31));
-  const keys=[...new Set(rows.flatMap(r=>Object.keys(r)))].filter(k=>!["deletedAt","createdBy","updatedBy","companyId","user","rule"].includes(k));
+  const keys=[...new Set([...rows.flatMap(r=>Object.keys(r)),...(name==="parties"?["province"]:[])])].filter(k=>!["deletedAt","createdBy","updatedBy","companyId","user","rule"].includes(k));
   sheet.columns=keys.map(key=>({header:key,key,width:24}));
   for(const row of rows) sheet.addRow(Object.fromEntries(keys.map(key=>{
     const value=row[key];

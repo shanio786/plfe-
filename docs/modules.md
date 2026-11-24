@@ -142,8 +142,14 @@ an original invoice/bill. Supporting bills for posted expense vouchers are kept.
 
 ### Chart, settings and roles
 
-One shared expo template creates **separate** charts for each company: thirty-seven
-accounts, five journals, three initial departments and thirteen number series.
+The agreed Events/Retail templates create **separate** charts for each company,
+with aligned shared codes, five journals, three initial departments and thirteen
+number series. PLFE/SE/LPE have July–June financial years; LEV/PFE/Zahra Home
+have January–December years. Zahra Home retains its original company code and
+has two showroom branches, cash accounts and inventory-location subaccounts.
+Group accounts are non-posting; each company gets five due-from and five due-to
+posting children using stable group-company suffixes. Retained earnings is 3900,
+while the required opening-equity mapping uses 3990.
 First initialization adds the new module grants to named system roles, but later
 runs do not reset edited mappings, charts or grants. New companies initialize
 their chart during authorized company provisioning.
@@ -155,6 +161,20 @@ purchase, general, bank and cash journals. Control-account remapping requires a
 settled old balance; historical posting classifications cannot be rewritten.
 Nonzero party opening balances post an audited opening journal, not a floating
 number outside the ledger.
+
+Province is an optional party field constrained in both the schema/service and
+PostgreSQL to the five agreed Pakistani province/territory values. Existing
+parties remain null; create/edit, list, detail and Excel export carry the field.
+It does not activate any tax calculation.
+
+The explicit `--correct-demo-chart` maintenance operation requires a live Owner,
+company accounting permissions and the ledger transaction lock. It rejects
+non-demo financial history, then reverses/cancels TEST-P2 documents with shared
+posting services and retains the original entries, lines, source records and
+zero-balance inactive legacy accounts. No constraints or document counters are
+disabled/reset. The narrow demo calendar correction preserves fiscal IDs,
+archives old periods and refuses locked/closed or multi-year histories.
+Ordinary initialization/startup never executes this operation or demo seeding.
 
 ### Screens and reports
 

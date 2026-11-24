@@ -9,7 +9,7 @@ import { DataTable } from "@/modules/core/components/data-table";
 import { RecordForm, type Field } from "@/modules/core/components/record-form";
 import { ActiveTag, Tag, useAction, useAdmin } from "@/modules/core/components/shared";
 import { dateTime } from "@/modules/core/components/format";
-import { accountSchema, departmentSchema, journalSchema, partySchema } from "../schema";
+import { accountSchema, departmentSchema, journalSchema, partySchema, provinces } from "../schema";
 import { A, EmptyBox, ErrorBox, Money, col, perm, useAll, useDeepId, useOp, type Col } from "./util";
 import { DetailDialog, Facts, useRecord } from "./detail";
 
@@ -171,17 +171,17 @@ export function PartiesSection() {
   return (
     <Master
       resource="parties" schema={partySchema} newLabel={A.a.newParty}
-      defaults={{ code: "", name: "", companyName: "", phone: "", email: "", city: "", ntn: "", address: "", creditDays: 0, isCustomer: true, isSupplier: false, isExhibitor: false, isSponsor: false, isStaff: false, active: true, openingBalance: "0.0000", openingSide: "RECEIVABLE" }}
-      toForm={(r) => ({ code: r.code, name: r.name, companyName: r.companyName ?? "", phone: r.phone ?? "", email: r.email ?? "", city: r.city ?? "", ntn: r.ntn ?? "", address: r.address ?? "", creditDays: r.creditDays ?? 0, isCustomer: !!r.isCustomer, isSupplier: !!r.isSupplier, isExhibitor: !!r.isExhibitor, isSponsor: !!r.isSponsor, isStaff: !!r.isStaff, active: !!r.active })}
+      defaults={{ code: "", name: "", companyName: "", phone: "", email: "", city: "", province: "", ntn: "", address: "", creditDays: 0, isCustomer: true, isSupplier: false, isExhibitor: false, isSponsor: false, isStaff: false, active: true, openingBalance: "0.0000", openingSide: "RECEIVABLE" }}
+      toForm={(r) => ({ code: r.code, name: r.name, companyName: r.companyName ?? "", phone: r.phone ?? "", email: r.email ?? "", city: r.city ?? "", province: r.province ?? "", ntn: r.ntn ?? "", address: r.address ?? "", creditDays: r.creditDays ?? 0, isCustomer: !!r.isCustomer, isSupplier: !!r.isSupplier, isExhibitor: !!r.isExhibitor, isSponsor: !!r.isSponsor, isStaff: !!r.isStaff, active: !!r.active })}
       fields={[
         { name: "code", kind: "text" }, { name: "name", kind: "text" }, { name: "companyName", kind: "text" }, { name: "ntn", kind: "text" }, { name: "phone", kind: "text" }, { name: "email", kind: "email" },
-        { name: "city", kind: "text" }, { name: "creditDays", kind: "number" }, { name: "address", kind: "textarea" },
+        { name: "city", kind: "text" }, { name: "province", kind: "select", options: provinces.map(value=>({value,label:value})) }, { name: "creditDays", kind: "number" }, { name: "address", kind: "textarea" },
         ...ROLE_KEYS.map((k) => ({ name: k, kind: "switch" as const })), { name: "active", kind: "switch" },
         { name: "openingBalance", kind: "money", createOnly: true, hint: A.a.openingHint },
         { name: "openingSide", kind: "select", createOnly: true, options: Object.entries(A.sides).map(([value, label]) => ({ value, label })) },
       ]}
-      columns={[codeCol, nameCol, col("companyName", (r) => <span className="text-xs">{r.companyName ?? "—"}</span>), col("roles", (r) => <Roles r={r} />), col("city"), col("creditDays", (r) => <span className="font-mono text-xs">{r.creditDays ?? 0}</span>), activeCol]}
-      facts={(r) => [[L.f.companyName, r.companyName || "—"], [A.f.roles, <Roles key="r" r={r} />], [L.f.phone, r.phone || "—"], [L.f.email, r.email || "—"], [L.f.city, r.city || "—"], [L.f.ntn, r.ntn || "—"], [L.f.creditDays, String(r.creditDays ?? 0)], [L.f.address, r.address || "—"]]}
+      columns={[codeCol, nameCol, col("companyName", (r) => <span className="text-xs">{r.companyName ?? "—"}</span>), col("roles", (r) => <Roles r={r} />), col("city"), col("province"), col("creditDays", (r) => <span className="font-mono text-xs">{r.creditDays ?? 0}</span>), activeCol]}
+      facts={(r) => [[L.f.companyName, r.companyName || "—"], [A.f.roles, <Roles key="r" r={r} />], [L.f.phone, r.phone || "—"], [L.f.email, r.email || "—"], [L.f.city, r.city || "—"], [L.f.province, r.province || "—"], [L.f.ntn, r.ntn || "—"], [L.f.creditDays, String(r.creditDays ?? 0)], [L.f.address, r.address || "—"]]}
       extraView={(r) => <Link href={`/${company}/accounts/party-ledger?partyId=${r.id}`} className="inline-block text-sm font-medium text-primary hover:underline" data-testid="link-party-ledger">{A.nav["party-ledger"]}</Link>}
     />
   );
