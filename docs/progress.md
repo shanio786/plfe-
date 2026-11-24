@@ -7,7 +7,16 @@ accounting interface before Part 2. It supersedes the earlier fixed showroom
 names/count; operators choose actual outlet records for any company. No full POS
 or inventory application is authorized.
 
-### Verified; push pending
+### Verified and pushed
+
+- Code/configuration/tests commit:
+  `ed9137c9ff5492b2e5758dabb8eadafa8839635c`
+  — `Add data-driven outlets and professional Accounts interface`.
+- `git push origin HEAD:main` succeeded. A subsequent
+  `git ls-remote origin refs/heads/main` returned that exact revision, matching
+  local HEAD. This records the verified code push, not a production deployment.
+- This progress-record follow-up is pushed separately after recording the
+  successful code revision; the temporary isolated browser server was stopped.
 
 - Added company-owned outlet records, permission-checked back-office services and
   list/detail/export support. Creation atomically allocates linked POS cash and
