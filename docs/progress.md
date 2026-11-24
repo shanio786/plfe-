@@ -47,8 +47,9 @@ and the single final signed-in financial browser pass remain outstanding.
   database counts remain zero users/companies/tax rates/journal entries.
   First Owner enrollment remains a private operator action, not a coding
   blocker. No secret or business opening amount was generated.
-- Commit/push verification: pending immediately after this progress update;
-  do not begin Part 4 before the remote revision is verified.
+- Committed Part 3 as `01ecfa1c3dca2ea686f552f2a52d2c85d6e5daf0`,
+  pushed successfully, and verified an exact `refs/heads/main` remote SHA match
+  before starting Part 4. This progress confirmation is committed separately.
 
 ## Part 2 — Tax — 2026-11-24
 
