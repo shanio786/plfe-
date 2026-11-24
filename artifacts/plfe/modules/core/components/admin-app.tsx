@@ -61,13 +61,10 @@ export function AdminApp({ company, section, module = "admin", nav, read, labels
   const [toast, setToast] = useState<{ msg: string; kind: "ok" | "err"; n: number } | null>(null);
   const [mobileNav, setMobileNav] = useState(false);
 
-  useEffect(() => {
+  const reloadOverview = useCallback(() => {
     api<Identity>("/session")
       .then((s) => (s.user.mustChangePassword ? router.replace("/change-password") : setIdentity(s)))
       .catch(() => router.replace("/login"));
-  }, [router]);
-
-  const reloadOverview = useCallback(() => {
     api<Overview>(`/${company}/overview`).then((o) => { setOverview(o); setOvError(null); }).catch((e) => {
       if (e.status === 401) router.replace("/login");
       else setOvError(e.message);
@@ -75,6 +72,23 @@ export function AdminApp({ company, section, module = "admin", nav, read, labels
   }, [company, router]);
   useEffect(reloadOverview, [reloadOverview]);
   useEffect(() => setMobileNav(false), [section]);
+  // Keyboard: Ctrl+Alt+N starts a new document/record on the current screen; "/" focuses the table search.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      const typing = !!t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+      if (e.ctrlKey && e.altKey && (e.key === "n" || e.key === "N" || e.code === "KeyN")) {
+        if (document.querySelector("[role=dialog]")) return;
+        const b = document.querySelector<HTMLButtonElement>("[data-new-doc]:not([disabled])");
+        if (b) { e.preventDefault(); b.click(); }
+      } else if (e.key === "/" && !typing && !e.ctrlKey && !e.metaKey && !document.querySelector("[role=dialog]")) {
+        const i = document.querySelector<HTMLInputElement>("[data-search]");
+        if (i) { e.preventDefault(); i.focus(); }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3200);
@@ -113,13 +127,13 @@ export function AdminApp({ company, section, module = "admin", nav, read, labels
           <div className="font-display text-sm font-bold">{L.brand.short}</div>
           <div className="truncate text-[10px] uppercase tracking-[0.16em] text-primary-foreground/50">{L.brand.group}</div>
         </div>
-        <button className="ml-auto md:hidden" onClick={() => setMobileNav(false)}><X className="h-5 w-5" /></button>
+        <button className="ml-auto xl:hidden" onClick={() => setMobileNav(false)}><X className="h-5 w-5" /></button>
       </div>
       <div className="px-3 pb-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex w-full items-center gap-2.5 rounded-md border border-primary-foreground/10 bg-primary-foreground/[0.04] px-2.5 py-2 text-left transition-colors hover:bg-primary-foreground/[0.08]" data-testid="button-company-switcher">
-              <div className="grid h-7 w-7 shrink-0 place-items-center rounded bg-accent/90 font-mono text-[10px] font-bold text-accent-foreground">{String(current?.code ?? company).slice(0, 3)}</div>
+              <div className="grid h-7 w-7 shrink-0 place-items-center rounded bg-primary-foreground font-mono text-[10px] font-bold text-sidebar">{String(current?.code ?? company).slice(0, 3)}</div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium" data-testid="text-company-name">{current?.name ?? company}</div>
                 <div className="text-[10px] uppercase tracking-wider text-primary-foreground/50">{L.nav.switchCompany}</div>
@@ -158,8 +172,8 @@ export function AdminApp({ company, section, module = "admin", nav, read, labels
                   data-testid={`link-nav-${key}`}
                   className={`group relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors ${active ? "bg-primary-foreground/[0.1] text-primary-foreground" : "text-primary-foreground/65 hover:bg-primary-foreground/[0.05] hover:text-primary-foreground"}`}
                 >
-                  {active && <span className="absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r bg-accent" />}
-                  <Icon className={`h-4 w-4 ${active ? "text-accent" : ""}`} />
+                  {active && <span className="absolute -left-3 top-1.5 bottom-1.5 w-[3px] rounded-r bg-primary-foreground" />}
+                  <Icon className="h-4 w-4" />
                   <span className="truncate">{navLabel(key)}</span>
                   {module === "admin" && key === "approvals" && pending > 0 && <span className="ml-auto rounded bg-accent px-1.5 font-mono text-[10px] font-bold text-accent-foreground">{pending}</span>}
                 </Link>
@@ -181,26 +195,49 @@ export function AdminApp({ company, section, module = "admin", nav, read, labels
 
   return (
     <Ctx.Provider value={ctx}>
-      <div className="min-h-[100dvh] md:grid md:grid-cols-[248px_1fr]">
-        <aside className="sticky top-0 hidden h-[100dvh] md:block">{sidebar}</aside>
+      <div className="min-h-[100dvh] xl:grid xl:grid-cols-[220px_1fr]">
+        <aside className="sticky top-0 hidden h-[100dvh] xl:block">{sidebar}</aside>
         {mobileNav && (
-          <div className="fixed inset-0 z-50 md:hidden">
+          <div className="fixed inset-0 z-50 xl:hidden">
             <div className="absolute inset-0 bg-ink/50" onClick={() => setMobileNav(false)} />
             <div className="absolute inset-y-0 left-0 w-72 rise">{sidebar}</div>
           </div>
         )}
         <main className="min-w-0">
-          <header className="sticky top-0 z-30 flex items-center gap-3 border-b bg-background/85 px-4 py-3 backdrop-blur md:px-8">
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileNav(true)} data-testid="button-mobile-nav"><Menu /></Button>
-            <div className="flex min-w-0 items-center gap-2 font-mono text-xs text-muted-foreground">
-              <span className="truncate">{current?.code ?? company}</span><span>/</span><span className="truncate">{L.nav.modules[module]}</span><span>/</span><span className="truncate text-foreground">{navLabel(section)}</span>
+          <header className="sticky top-0 z-30 flex items-center gap-3 border-b bg-card px-4 py-2 md:px-6">
+            <Button variant="ghost" size="icon" className="xl:hidden" onClick={() => setMobileNav(true)} aria-label={L.nav.switchCompany} data-testid="button-mobile-nav"><Menu /></Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex min-w-0 items-center gap-2.5 rounded-md border border-primary/40 py-1 pl-1 pr-2.5 text-left hover:bg-muted" title={L.nav.switchCompany} data-testid="button-header-company">
+                  <span className="rounded bg-primary px-1.5 py-1 font-mono text-xs font-bold text-primary-foreground" data-testid="text-header-company-code">{current?.code ?? company}</span>
+                  <span className="min-w-0 leading-tight">
+                    <span className="block truncate text-sm font-semibold" data-testid="text-header-company-name">{current?.name ?? company}</span>
+                    <span className="block text-[10px] uppercase tracking-[0.08em] text-muted-foreground">{L.nav.postingInto}</span>
+                  </span>
+                  <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-72">
+                <DropdownMenuLabel className="text-xs text-muted-foreground">{L.nav.switchCompany}</DropdownMenuLabel>
+                {identity.companies.map((c) => (
+                  <DropdownMenuItem key={c.id} onSelect={() => router.push(`/${companySlug(c as any)}/${module}/${section}`)} data-testid={`menu-header-company-${c.id}`}>
+                    <span className="w-12 font-mono text-xs text-muted-foreground">{c.code}</span><span className="truncate">{c.name}</span>{c.id === current?.id && <span className="ml-auto text-[10px] uppercase text-primary">{L.nav.current}</span>}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="hidden min-w-0 items-center gap-1.5 text-xs text-muted-foreground lg:flex">
+              <span>{L.nav.modules[module]}</span><span>/</span><span className="truncate text-foreground">{navLabel(section)}</span>
             </div>
-            <div className="ml-auto font-mono text-[11px] text-muted-foreground">{overview?.fiscalYear ? `FY ${overview.fiscalYear.name}` : ""}</div>
+            <div className="ml-auto flex items-center gap-3 text-[11px] text-muted-foreground">
+              <span className="hidden xl:inline" data-testid="text-shortcuts"><kbd className="rounded border px-1 font-mono">Ctrl+Alt+N</kbd> {L.nav.newShort} <kbd className="ml-2 rounded border px-1 font-mono">/</kbd> {L.nav.searchShort} <kbd className="ml-2 rounded border px-1 font-mono">Esc</kbd> {L.nav.closeShort}</span>
+              <span className="font-mono">{overview?.fiscalYear ? `FY ${overview.fiscalYear.name}` : ""}</span>
+            </div>
           </header>
-          <div key={`${company}:${module}:${section}`} className="px-4 py-6 md:px-8 md:py-8 rise">
-            <div className="mb-6">
-              <h1 className="font-display text-[28px] font-bold leading-tight tracking-tight" data-testid="text-section-title">{navLabel(section)}</h1>
-              {subLabel(section) && <p className="mt-1 text-sm text-muted-foreground">{subLabel(section)}</p>}
+          <div key={`${company}:${module}:${section}`} className="px-4 py-4 md:px-6 md:py-5 rise">
+            <div className="mb-4 flex flex-wrap items-baseline gap-x-3">
+              <h1 className="font-display text-xl font-bold leading-tight tracking-tight" data-testid="text-section-title">{navLabel(section)}</h1>
+              {subLabel(section) && <p className="text-sm text-muted-foreground">{subLabel(section)}</p>}
             </div>
             {!known ? (
               <div className="rounded-lg border border-dashed p-10 text-center text-muted-foreground"><FileStack className="mx-auto mb-3 h-6 w-6" />{L.common.noResults}</div>
@@ -219,7 +256,7 @@ export function AdminApp({ company, section, module = "admin", nav, read, labels
         </main>
       </div>
       {toast && (
-        <div key={toast.n} className={`fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-md border px-4 py-2.5 text-sm shadow-lg rise ${toast.kind === "ok" ? "border-success/30 bg-card text-success" : "border-destructive/30 bg-card text-destructive"}`} data-testid="toast">
+        <div key={toast.n} className={`fixed bottom-5 right-5 z-[60] flex items-center gap-2 rounded-md border px-4 py-2.5 text-sm rise ${toast.kind === "ok" ? "border-success/30 bg-card text-success" : "border-destructive/30 bg-card text-destructive"}`} data-testid="toast">
           <span className={`h-2 w-2 rounded-full ${toast.kind === "ok" ? "bg-success" : "bg-destructive"}`} />{toast.msg}
         </div>
       )}

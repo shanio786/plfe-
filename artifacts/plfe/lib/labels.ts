@@ -5,7 +5,7 @@ export const L = {
     loading: "Loading", retry: "Try again", yes: "Yes", no: "No", active: "Active", inactive: "Inactive", actions: "Actions", details: "Details",
     confirmDelete: "Delete this record?", confirmDeleteBody: "The record will be removed from active lists. This is recorded in the audit trail.",
     saved: "Saved", deleted: "Deleted", empty: "Nothing here yet", emptyBody: "Records you add will appear in this ledger.", noResults: "No records match your filters.",
-    page: "Page", of: "of", rows: "records", prev: "Previous", next: "Next", allStatuses: "All statuses", status: "Status", required: "Required",
+    page: "Page", pageTotal: "Page total", of: "of", rows: "records", prev: "Previous", next: "Next", allStatuses: "All statuses", status: "Status", required: "Required",
     denied: "Your role does not permit this action.", errorTitle: "Could not load", signOut: "Sign out", system: "System", custom: "Custom", owner: "Owner", download: "Download", none: "None",
   },
   login: {
@@ -21,7 +21,7 @@ export const L = {
     groups: { workspace: "Workspace", organisation: "Organisation", controls: "Controls", security: "Security" },
     overview: "Overview", companies: "Companies", branches: "Branches", users: "Users", roles: "Roles & permissions", numbering: "Document numbering",
     "fiscal-years": "Fiscal years", "approval-rules": "Approval rules", approvals: "Approvals", attachments: "Attachments", audit: "Audit trail", profile: "My profile", sessions: "Sessions",
-    switchCompany: "Switch company", modules: { admin: "Admin", accounts: "Accounts" },
+    postingInto: "Current company: entries post here", current: "Current", newShort: "new", searchShort: "search", closeShort: "close", switchCompany: "Switch company", modules: { admin: "Admin", accounts: "Accounts" },
   } as Record<string, any>,
   sub: {
     overview: "Today's state of this company at a glance.", companies: "Legal entities, tax identity and fiscal defaults.", branches: "Offices, showrooms, warehouses and event sites.",
@@ -57,12 +57,12 @@ export const L = {
   acc: {
     nav: {
       groups: { books: "Books", masters: "Masters", documents: "Documents", reports: "Reports", setup: "Setup" },
-      overview: "Financial summary", chart: "Chart of accounts", parties: "Parties", departments: "Departments", journals: "Journals", invoices: "Invoices & credit notes",
+      overview: "Financial summary", chart: "Chart of accounts", parties: "Parties", departments: "Departments", journals: "Journals", outlets: "Outlets", invoices: "Invoices & credit notes",
       bills: "Bills & debit notes", payments: "Receipts & payments", vouchers: "Vouchers", "trial-balance": "Trial balance", ledger: "General ledger", "party-ledger": "Party ledger", settings: "Posting settings",
     } as Record<string, any>,
     sub: {
       overview: "Receivables, payables and liquidity from posted entries only.", chart: "Account codes and groups. Bank and cash flags drive settlement choices.", parties: "Customers, suppliers, exhibitors, sponsors and staff in one register.",
-      departments: "Cost and revenue centres tagged on lines.", journals: "Books that number and group journal entries.", invoices: "Sales invoices and credit notes against them.",
+      departments: "Cost and revenue centres tagged on lines.", journals: "Books that number and group journal entries.", outlets: "Showrooms, counters, gates and offices. Each outlet gets its own cash and stock accounts.", invoices: "Sales invoices and credit notes against them.",
       bills: "Supplier bills and debit notes against them.", payments: "Money in and out, allocated against posted documents. Remainders stay as advances.",
       vouchers: "Every journal entry, from manual vouchers and from posted documents.", "trial-balance": "Debit and credit balances per account for a period.", ledger: "Line-by-line movement with running balance.",
       "party-ledger": "Statement of one party's account.", settings: "Control accounts and journals used by automatic posting.",
@@ -70,17 +70,18 @@ export const L = {
     status: { DRAFT: "Draft", POSTED: "Posted", CANCELLED: "Cancelled", PENDING: "Pending" } as Record<string, string>,
     settle: { UNPAID: "Unpaid", PART_PAID: "Part paid", PAID: "Paid", APPLIED: "Applied", CANCELLED: "Cancelled" } as Record<string, string>,
     kinds: { INVOICE: "Invoice", CREDIT_NOTE: "Credit note", BILL: "Bill", DEBIT_NOTE: "Debit note", RECEIPT: "Receipt", PAYMENT: "Payment", CASH: "Cash", BANK: "Bank", JOURNAL: "Journal", TRANSFER: "Transfer", EXPENSE: "Expense", REVERSAL: "Reversal", SALES: "Sales", PURCHASE: "Purchase", GENERAL: "General" } as Record<string, string>,
+    outletTypes: { SHOWROOM: "Showroom", COUNTER: "Counter", GATE: "Gate", OFFICE: "Office" } as Record<string, string>,
     types: { ASSET: "Asset", LIABILITY: "Liability", EQUITY: "Equity", INCOME: "Income", EXPENSE: "Expense" } as Record<string, string>,
     sides: { RECEIVABLE: "Receivable (they owe us)", PAYABLE: "Payable (we owe them)" } as Record<string, string>,
     f: {
       number: "Number", date: "Date", dueDate: "Due date", party: "Party", partyId: "Party", kind: "Kind", total: "Total", paid: "Paid", outstanding: "Outstanding", settlement: "Settlement",
       narration: "Narration", original: "Against document", account: "Account", accountId: "Account", qty: "Qty", rate: "Rate", amount: "Amount", department: "Department", departmentId: "Department",
       debit: "Debit", credit: "Credit", balance: "Balance", memo: "Memo", journal: "Journal", journalId: "Journal", direction: "Direction", method: "Method", settlementAccountId: "Settlement account",
-      allocated: "Allocated", advance: "Unallocated advance", source: "Source", lines: "Lines", from: "From", to: "To", parent: "Parent", type: "Type", flags: "Flags", roles: "Roles", code: "Code", name: "Name",
+      allocated: "Allocated", advance: "Unallocated advance", source: "Source", lines: "Lines", from: "From", to: "To", parent: "Parent", type: "Type", flags: "Flags", roles: "Roles", code: "Code", name: "Name", outlet: "Outlet", outletId: "Outlet", address: "Address", accounts: "Accounts",
       opening: "Opening balance", closing: "Closing balance", entry: "Journal entry", reversal: "Reversal entry", difference: "Difference",
     } as Record<string, string>,
     a: {
-      newInvoice: "New invoice", newBill: "New bill", newPayment: "New receipt / payment", newVoucher: "New voucher", newAccount: "New account", newParty: "New party", newDepartment: "New department", newJournal: "New journal",
+      newInvoice: "New invoice", newBill: "New bill", newPayment: "New receipt / payment", newVoucher: "New voucher", newAccount: "New account", newParty: "New party", newDepartment: "New department", newJournal: "New journal", newOutlet: "New outlet", line: "Line", pickAccount: "Choose an account for this line.", enterDescription: "Describe what this line is for.", enterAmount: "Enter an amount like 1250.00 (numbers only, up to 4 decimals).", allOutlets: "All outlets", inactiveSuffix: "(inactive)", summary: "Position", quick: "Start", noOutletRow: "—", outletAccounts: "Cash and stock accounts for this outlet", noOutletAccounts: "No accounts have been set up for this outlet yet.", inventoryTag: "stock", outletDeactivate: "Turn off to stop new entries. Its accounts and history stay.", newShortcut: "New document (Ctrl+Alt+N)",
       creditNote: "Raise credit note", debitNote: "Raise debit note", post: "Post", posted: "Posted to the ledger", cancel: "Request cancellation", cancelNote: "Why should this posted document be cancelled?",
       cancelBody: "Posted records are immutable. Cancellation creates a reversal entry once a second person approves it.", del: "Delete draft", deleteBody: "Drafts never reached the ledger. Removing it is recorded in the audit trail.",
       postTitle: "Post to the ledger?", postBody: "Posting creates a journal entry. Afterwards, financial fields can no longer be edited.", approvalSent: "Sent for approval", openApprovals: "Open approvals",
@@ -94,7 +95,7 @@ export const L = {
       group: "Group", bankTag: "bank", cashTag: "cash", noteMin: "Give a reason of at least 3 characters.", allocCap: "Allocated must not exceed the amount.",
       openingHint: "Posts an opening journal entry once, on creation. Cannot be changed later.",
       tiles: { invoiceOutstanding: "Receivable outstanding", billOutstanding: "Payable outstanding", cashBalance: "Cash in hand", bankBalance: "Bank balances" } as Record<string, string>,
-      future: "Event and outlet tags arrive with their modules.", createdFrom: "Created by", ledgerOf: "View ledger", noteOnly: "Notes must reference a posted original of the same party.",
+      future: "Event tags arrive with the Events module.", createdFrom: "Created by", ledgerOf: "View ledger", noteOnly: "Notes must reference a posted original of the same party.",
     },
   },
   profile: { identity: "Identity", companies: "Company access", changePw: "Change password" },

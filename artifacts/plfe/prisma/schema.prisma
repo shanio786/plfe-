@@ -23,6 +23,7 @@ model Company {
   businessType     String    @default("EVENTS") @map("business_type")
   businessTypeRecord BusinessType @relation(fields:[businessType],references:[code],onDelete:Restrict)
   counterpartyAccounts Account[] @relation("CounterpartyCompany")
+  outlets Outlet[]
   lockDate         DateTime? @map("lock_date") @db.Date
   active           Boolean   @default(true)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -72,6 +73,31 @@ model EnrollmentGuard {
   lockedUntil DateTime? @map("locked_until") @db.Timestamptz(6)
   completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
   @@map("enrollment_guard")
+}
+
+model Outlet {
+  id String @id @default(uuid()) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  code String
+  name String
+  type String
+  address String?
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String? @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String? @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company Company @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  accounts Account[]
+  journalLines JournalLine[]
+  invoiceLines InvoiceLine[]
+  billLines BillLine[]
+  payments Payment[]
+  @@unique([id,companyId])
+  @@unique([companyId,code])
+  @@index([companyId,active])
+  @@map("outlets")
 }
 
 model User {
@@ -406,6 +432,8 @@ model Account {
   isCash Boolean @default(false) @map("is_cash")
   counterpartyCompanyId String? @map("counterparty_company_id") @db.Uuid
   counterpartyCompany Company? @relation("CounterpartyCompany",fields:[counterpartyCompanyId],references:[id],onDelete:Restrict)
+  outletId String? @map("outlet_id") @db.Uuid
+  outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
   active Boolean @default(true)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy String? @map("created_by") @db.Uuid
@@ -538,7 +566,7 @@ model JournalLine {
   debit Decimal @default(0) @db.Decimal(18,4)
   credit Decimal @default(0) @db.Decimal(18,4)
   partyId String? @map("party_id") @db.Uuid
-  // Event/outlet FKs are deliberately added when those modules create their tables.
+  // Event remains reserved; outlets are now company-owned records.
   eventId String? @map("event_id") @db.Uuid
   outletId String? @map("outlet_id") @db.Uuid
   departmentId String? @map("department_id") @db.Uuid
@@ -553,6 +581,7 @@ model JournalLine {
   account Account @relation(fields:[accountId,companyId],references:[id,companyId],onDelete:Restrict)
   party Party? @relation(fields:[partyId,companyId],references:[id,companyId],onDelete:Restrict)
   department Department? @relation(fields:[departmentId,companyId],references:[id,companyId],onDelete:Restrict)
+  outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
   @@unique([id,companyId])
   @@unique([companyId,entryId,lineNo])
   @@index([companyId,accountId])
@@ -621,6 +650,7 @@ model InvoiceLine {
   invoice Invoice @relation(fields:[invoiceId,companyId],references:[id,companyId],onDelete:Restrict)
   account Account @relation(fields:[accountId,companyId],references:[id,companyId],onDelete:Restrict)
   department Department? @relation(fields:[departmentId,companyId],references:[id,companyId],onDelete:Restrict)
+  outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
   @@unique([id,companyId])
   @@unique([companyId,invoiceId,lineNo])
   @@map("invoice_lines")
@@ -686,6 +716,7 @@ model BillLine {
   bill Bill @relation(fields:[billId,companyId],references:[id,companyId],onDelete:Restrict)
   account Account @relation(fields:[accountId,companyId],references:[id,companyId],onDelete:Restrict)
   department Department? @relation(fields:[departmentId,companyId],references:[id,companyId],onDelete:Restrict)
+  outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
   @@unique([id,companyId])
   @@unique([companyId,billId,lineNo])
   @@map("bill_lines")
@@ -718,6 +749,7 @@ model Payment {
   party Party @relation(fields:[partyId,companyId],references:[id,companyId],onDelete:Restrict)
   settlementAccount Account @relation(fields:[settlementAccountId,companyId],references:[id,companyId],onDelete:Restrict)
   department Department? @relation(fields:[departmentId,companyId],references:[id,companyId],onDelete:Restrict)
+  outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
   entry JournalEntry? @relation("PaymentEntry",fields:[entryId,companyId],references:[id,companyId],onDelete:Restrict)
   reversalEntry JournalEntry? @relation("PaymentReversal",fields:[reversalEntryId,companyId],references:[id,companyId],onDelete:Restrict)
   allocations PaymentAllocation[]

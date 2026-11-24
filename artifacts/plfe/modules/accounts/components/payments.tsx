@@ -15,7 +15,7 @@ import { DataTable } from "@/modules/core/components/data-table";
 import { useAdmin } from "@/modules/core/components/shared";
 import { date, isoDay } from "@/modules/core/components/format";
 import { paymentSchema } from "../schema";
-import { A, Amt, ApprovalNotice, DocStatus, KindTag, Money, PickSelect, Section, col, dec, fix4, label, perm, sum, useDeepId, useLookups, useOp } from "./util";
+import { A, Amt, OutletTag, outletFor, outletOpts, ApprovalNotice, DocStatus, KindTag, Money, PickSelect, Section, col, dec, fix4, label, perm, sum, useDeepId, useLookups, useOp , numCol } from "./util";
 import { Attachments, DetailDialog, Facts, useRecord } from "./detail";
 import { EntryLinks, useLifecycle } from "./lifecycle";
 import { AllocationPicker, type Alloc } from "./allocations";
@@ -44,9 +44,9 @@ export function PaymentsSection() {
           <button key={k || "all"} onClick={() => setDir(k)} data-testid={`button-filter-direction-${k || "all"}`} className={`rounded px-2.5 py-1 text-xs font-medium ${dir === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>{k ? A.kinds[k] : A.a.allKinds}</button>
         ))}
       </div>
-      <DataTable company={company} resource="accounts/payments" refreshKey={key} extra={dir ? { direction: dir } : undefined} onRowClick={(r) => setId(r.id)}
+      <DataTable company={company} resource="accounts/payments" refreshKey={key} extra={dir ? { paymentDirection: dir } : undefined} onRowClick={(r) => setId(r.id)}
         statusOptions={["DRAFT", "POSTED", "CANCELLED"].map((value) => ({ value, label: A.status[value] }))}
-        toolbar={<Button size="sm" disabled={!mayCreate} onClick={() => setEditor({ rec: null })} data-testid="button-new-payment">{mayCreate ? <Plus /> : <Lock />}{A.a.newPayment}</Button>}
+        toolbar={<Button size="sm" disabled={!mayCreate} title={A.a.newShortcut} onClick={() => setEditor({ rec: null })} data-testid="button-new-payment" data-new-doc aria-keyshortcuts="Control+Alt+N">{mayCreate ? <Plus /> : <Lock />}{A.a.newPayment}</Button>}
         columns={[
           col("number", (r) => <span className="font-mono text-xs font-semibold">{r.number ?? <span className="text-muted-foreground">{A.status.DRAFT}</span>}</span>, true),
           col("date", (r) => <span className="font-mono text-xs">{date(r.date)}</span>, true),
@@ -54,7 +54,7 @@ export function PaymentsSection() {
           col("method", (r) => <span className="text-xs">{A.kinds[r.method] ?? r.method}</span>),
           col("party", (r) => <span className="font-medium">{r.party?.name ?? "—"}</span>),
           col("settlementAccountId", (r) => <span className="text-xs text-muted-foreground">{r.settlementAccount?.name ?? r.account?.name ?? "—"}</span>),
-          col("amount", (r) => <Amt v={r.amount} className="font-semibold" />, true),
+          numCol("amount", (r) => r.amount, true, true),
           col("status", (r) => <DocStatus s={r.status} />),
         ]} />
       <DetailDialog open={!!id} onClose={() => setId(null)} error={error} retry={retry} loading={!rec}
@@ -68,7 +68,7 @@ export function PaymentsSection() {
               [A.f.date, <span key="d" className="font-mono">{date(rec.date)}</span>], [A.f.amount, <Money key="a" v={rec.amount} strong />],
               [A.f.allocated, <Money key="al" v={fix4(sum((rec.allocations ?? []).map((a: RecordData) => a.amount)))} />], [A.f.advance, <Money key="ad" v={advance ? fix4(advance) : "0"} strong className="text-primary" />],
               [A.f.party, rec.party ? <Link key="p" href={`/${company}/accounts/party-ledger?partyId=${rec.partyId}`} className="text-primary hover:underline">{label(rec.party)}</Link> : "—"],
-              [A.f.settlementAccountId, label(rec.settlementAccount ?? rec.account)], [A.f.department, rec.department?.name ?? "—"], [A.f.narration, rec.narration || "—"],
+              [A.f.settlementAccountId, label(rec.settlementAccount ?? rec.account)], [A.f.department, rec.department?.name ?? "—"], [A.f.outlet, <OutletTag key="o" o={rec.outlet} />], [A.f.narration, rec.narration || "—"],
             ]} />
             <EntryLinks rec={rec} />
             <Section title={A.a.allocations}>
@@ -103,11 +103,12 @@ function PaymentEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
   const op = useOp();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const { chart, parties, departments } = useLookups(true);
+  const { chart, parties, departments, outlets } = useLookups(true);
+  const [outletWarn, setOutletWarn] = useState("");
   const form = useForm<any>({
     resolver: zodResolver(paymentSchema as any) as any,
-    defaultValues: rec ? { direction: rec.direction, method: rec.method, partyId: rec.partyId, date: isoDay(rec.date), settlementAccountId: rec.settlementAccountId, amount: String(rec.amount), narration: rec.narration ?? "", departmentId: rec.departmentId ?? null, allocations: allocsOf(rec) }
-      : { direction: "RECEIPT", method: "BANK", partyId: "", date: today(), settlementAccountId: "", amount: "", narration: "", departmentId: null, allocations: [] },
+    defaultValues: rec ? { direction: rec.direction, method: rec.method, partyId: rec.partyId, date: isoDay(rec.date), settlementAccountId: rec.settlementAccountId, amount: String(rec.amount), narration: rec.narration ?? "", departmentId: rec.departmentId ?? null, outletId: rec.outletId ?? null, allocations: allocsOf(rec) }
+      : { direction: "RECEIPT", method: "BANK", partyId: "", date: today(), settlementAccountId: "", amount: "", narration: "", departmentId: null, outletId: null, allocations: [] },
   });
   const [direction, method, partyId, amount] = useWatch({ control: form.control, name: ["direction", "method", "partyId", "amount"] });
   const prevKey = `${direction}:${partyId}`;
@@ -117,7 +118,7 @@ function PaymentEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
   const submit = form.handleSubmit(async (v) => {
     setError(null);
     try {
-      const r = await op("payments", { operation: "save", ...(rec ? { id: rec.id } : {}), ...v, departmentId: v.departmentId || null, allocations: cleanAllocs(v.allocations ?? []) });
+      const r = await op("payments", { operation: "save", ...(rec ? { id: rec.id } : {}), ...v, departmentId: v.departmentId || null, outletId: form.getValues("outletId") || null, allocations: cleanAllocs(v.allocations ?? []) });
       if (r?.approvalRequested) setNotice(r.message || A.a.approvalSent);
       onSaved(r as RecordData);
       if (!r?.approvalRequested) onClose();
@@ -139,10 +140,11 @@ function PaymentEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
             <div className="space-y-1.5"><Label>{A.f.direction}</Label>{seg("direction", ["RECEIPT", "PAYMENT"])}</div>
             <div className="space-y-1.5"><Label>{A.f.method}</Label>{seg("method", ["BANK", "CASH"])}</div>
             <div className="space-y-1.5"><Label>{A.f.party}</Label><Controller control={form.control} name="partyId" render={({ field }) => <PickSelect value={field.value} onChange={(v) => field.onChange(v ?? "")} className="h-9" testId="select-payment-party" placeholder={parties.loading ? L.common.loading : A.f.party} options={parties.rows.filter((p) => p.active !== false || p.id === field.value).map((p) => ({ value: p.id, label: label(p) }))} />} />{errs.partyId && <p className="text-xs text-destructive">{L.common.required}</p>}</div>
-            <div className="space-y-1.5"><Label>{A.f.settlementAccountId}</Label><Controller control={form.control} name="settlementAccountId" render={({ field }) => <PickSelect value={field.value} onChange={(v) => field.onChange(v ?? "")} className="h-9" testId="select-settlement" placeholder={A.kinds[method]} options={settleOpts} />} />{errs.settlementAccountId && <p className="text-xs text-destructive">{L.common.required}</p>}</div>
+            <div className="space-y-1.5"><Label>{A.f.settlementAccountId}</Label><Controller control={form.control} name="settlementAccountId" render={({ field }) => <PickSelect value={field.value} onChange={(v) => { field.onChange(v ?? ""); const o = outletFor(chart.rows, v, form.getValues("outletId")); if (o.set) form.setValue("outletId", o.set); setOutletWarn(o.warn ?? ""); }} className="h-9" testId="select-settlement" placeholder={A.kinds[method]} options={settleOpts} />} />{errs.settlementAccountId && <p className="text-xs text-destructive">{L.common.required}</p>}</div>
             <div className="space-y-1.5"><Label>{A.f.date}</Label><Input type="date" {...form.register("date")} data-testid="input-payment-date" /></div>
             <div className="space-y-1.5"><Label>{A.f.amount}</Label><Input inputMode="decimal" className="font-mono" placeholder="0.0000" {...form.register("amount")} data-testid="input-payment-amount" />{errs.amount && <p className="text-xs text-destructive">{String(errs.amount.message)}</p>}</div>
             <div className="space-y-1.5"><Label>{A.f.department}</Label><Controller control={form.control} name="departmentId" render={({ field }) => <PickSelect value={field.value} onChange={field.onChange} allowNone className="h-9" testId="select-payment-dept" options={departments.rows.filter((d) => d.active !== false).map((d) => ({ value: d.id, label: label(d) }))} />} /></div>
+            <div className="space-y-1.5"><Label>{A.f.outlet}</Label><Controller control={form.control} name="outletId" render={({ field }) => <PickSelect value={field.value} onChange={(v) => { field.onChange(v); setOutletWarn(""); }} allowNone className="h-9" testId="select-payment-outlet" options={outletOpts(outlets.rows, field.value)} />} />{outletWarn && <p className="text-xs text-destructive">{outletWarn}</p>}</div>
             <div className="space-y-1.5"><Label>{A.f.narration}</Label><Textarea rows={1} {...form.register("narration")} data-testid="input-payment-narration" /></div>
           </div>
           <Controller control={form.control} name="allocations" render={({ field }) => (

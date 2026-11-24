@@ -57,8 +57,32 @@ scope; unrelated Phase 3 work and VPS deployment are not authorized.
 The six starting companies are initial configuration, not a runtime allowlist.
 Events/Retail behavior follows company-owned business-type data, never its code.
 PLFE, SE and LPE close in June; LEV, PFE and Zahra Home close in December.
-Retail has two showrooms. The UI shows year-end month while storage retains the
-following start month. Counterparty links and allocated child codes are permanent.
+The UI shows year-end month while storage retains the following start month.
+Counterparty links and allocated child codes are permanent.
+
+### Latest pre-Tax additions
+
+Outlets are ordinary company-owned records for **any** company and any number
+of locations, not a retail-only list or a fixed showroom count. The operator
+chooses their codes, names and types (showroom/counter/gate/office). Creating
+one through the back office provisions permanent linked POS cash and inventory
+accounts under the respective parents. Templates contain no outlet-specific
+accounts before outlets exist. Deactivation retains posted history, links and
+numbers. Outlet dimensions now refer to those records; event remains reserved.
+This authorizes outlet/location support, not a full POS or inventory application.
+
+Keep the accepted shell and apply the user's accounting interface standard across
+all screens: dense neutral information-first surfaces, one restrained accent,
+quiet text status badges, consistent dates, and right-aligned tabular amounts as
+`Rs 1,234,567.00` with negatives in brackets. Use sortable tables, sticky headers,
+filters and clearly labelled totals. Keep important columns accessible on tablets.
+Use compact two-column forms where practical, actionable errors beside fields,
+visible keyboard focus, Enter to save, Escape to close and a new-document shortcut.
+Keep the company switcher visible and the posting company unmistakable.
+All interface text is English. Inspect every signed-in Accounts screen at desktop
+and tablet widths before moving to Tax, using disposable test data, not live books.
+After each completed part, commit/push and record the verified remote revision.
+If pushing fails, stop and report the failure rather than continuing.
 
 First-run `/enroll` requires a private random operator credential configured as
 `BOOTSTRAP_ENROLLMENT_TOKEN` (32 random bytes / at least 43 base64url characters).

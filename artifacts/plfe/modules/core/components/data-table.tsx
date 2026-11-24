@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef, type SortingState } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, FileSpreadsheet, Inbox, RotateCw, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, FileSpreadsheet, RotateCw, Search } from "lucide-react";
+import { money } from "./format";
 import { API, list, type PageData, type RecordData } from "@/lib/client";
 import { L } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
@@ -65,6 +66,11 @@ export function DataTable({ company, resource, columns, refreshKey = 0, statusOp
   });
   const total = data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / pageSize));
+  type Meta = { align?: "right"; sum?: (rows: RecordData[]) => string };
+  const metaOf = (c: { columnDef: { meta?: unknown } }) => (c.columnDef.meta ?? {}) as Meta;
+  const cols = table.getAllLeafColumns();
+  const hasSum = cols.some((c) => metaOf(c).sum);
+  const pageRows = data?.rows ?? [];
   const exportHref = (() => { const p = new URLSearchParams(params); p.set("export", "xlsx"); p.delete("page"); return `${API}/${company}/${resource}?${p}`; })();
 
   return (
@@ -77,6 +83,8 @@ export function DataTable({ company, resource, columns, refreshKey = 0, statusOp
             placeholder={L.common.search}
             className="h-8 bg-card pl-8 text-sm"
             data-testid={`input-search-${resource}`}
+            data-search
+            aria-keyshortcuts="/"
             onChange={(e) => {
               const v = e.target.value;
               setSearch(v);
@@ -98,24 +106,24 @@ export function DataTable({ company, resource, columns, refreshKey = 0, statusOp
           <Button variant="ghost" size="icon" onClick={() => setTick((t) => t + 1)} title={L.common.retry} data-testid={`button-refresh-${resource}`}><RotateCw className={loading ? "animate-spin" : ""} /></Button>
           {exportable && (
             <Button variant="outline" size="sm" asChild>
-              <a href={exportHref} data-testid={`button-export-${resource}`}><FileSpreadsheet className="text-success" />{L.common.export}</a>
+              <a href={exportHref} data-testid={`button-export-${resource}`}><FileSpreadsheet />{L.common.export}</a>
             </Button>
           )}
           {toolbar}
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <div className="max-h-[calc(100dvh-15rem)] overflow-auto">
         <table className="w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-card">
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id} className="border-b">
                 {hg.headers.map((h) => {
                   const can = h.column.getCanSort();
                   const dir = h.column.getIsSorted();
                   return (
-                    <th key={h.id} className="h-9 whitespace-nowrap px-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    <th key={h.id} aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : undefined} className={`h-9 whitespace-nowrap border-b bg-card px-2 ${metaOf(h.column).align === "right" ? "text-right" : "text-left"} text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground`}>
                       {can ? (
-                        <button className="inline-flex items-center gap-1 hover:text-foreground" onClick={h.column.getToggleSortingHandler()}>
+                        <button type="button" className="inline-flex items-center gap-1 rounded hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring" onClick={h.column.getToggleSortingHandler()}>
                           {flexRender(h.column.columnDef.header, h.getContext())}
                           {dir === "asc" ? <ArrowUp className="h-3 w-3 text-primary" /> : dir === "desc" ? <ArrowDown className="h-3 w-3 text-primary" /> : <ArrowUpDown className="h-3 w-3 opacity-40" />}
                         </button>
@@ -139,8 +147,7 @@ export function DataTable({ company, resource, columns, refreshKey = 0, statusOp
               </td></tr>
             ) : table.getRowModel().rows.length === 0 ? (
               <tr><td colSpan={columns.length} className="px-3 py-14 text-center">
-                <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-secondary text-secondary-foreground"><Inbox className="h-5 w-5" /></div>
-                <p className="font-display font-semibold">{q || status ? L.common.noResults : L.common.empty}</p>
+                <p className="font-medium">{q || status ? L.common.noResults : L.common.empty}</p>
                 {!q && !status && <p className="mt-1 text-sm text-muted-foreground">{L.common.emptyBody}</p>}
               </td></tr>
             ) : (
@@ -149,13 +156,29 @@ export function DataTable({ company, resource, columns, refreshKey = 0, statusOp
                   key={r.id}
                   data-testid={`row-${resource}-${r.original.id}`}
                   onClick={onRowClick ? () => onRowClick(r.original) : undefined}
-                  className={`border-b transition-colors last:border-0 hover:bg-accent/[0.07] ${onRowClick ? "cursor-pointer" : ""} ${loading ? "opacity-60" : ""}`}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onKeyDown={onRowClick ? (e) => { if (e.key === "Enter" && e.target === e.currentTarget) onRowClick(r.original); } : undefined}
+                  className={`border-b transition-colors last:border-0 hover:bg-muted/60 focus-visible:bg-muted focus-visible:outline-none ${onRowClick ? "cursor-pointer" : ""} ${loading ? "opacity-60" : ""}`}
                 >
-                  {r.getVisibleCells().map((c) => <td key={c.id} className="whitespace-nowrap px-3 py-2.5 align-middle">{flexRender(c.column.columnDef.cell, c.getContext())}</td>)}
+                  {r.getVisibleCells().map((c) => <td key={c.id} className={`whitespace-nowrap px-2 py-2 align-middle ${metaOf(c.column).align === "right" ? "text-right" : ""}`}>{flexRender(c.column.columnDef.cell, c.getContext())}</td>)}
                 </tr>
               ))
             )}
           </tbody>
+          {hasSum && pageRows.length > 0 && !error && (
+            <tfoot className="sticky bottom-0 bg-card">
+              <tr className="border-t-2 font-semibold" data-testid={`row-total-${resource}`}>
+                {table.getVisibleLeafColumns().map((c, i) => {
+                  const m = metaOf(c);
+                  return (
+                    <td key={c.id} className={`whitespace-nowrap px-2 py-2 ${m.align === "right" ? "text-right font-mono text-xs tabular-nums" : "text-[11px] uppercase tracking-[0.08em] text-muted-foreground"}`}>
+                      {m.sum ? money(m.sum(pageRows)) : i === 0 ? `${L.common.pageTotal} (${pageRows.length} of ${total})` : ""}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
       <div className="flex items-center justify-between border-t bg-muted/30 px-3 py-2 text-xs text-muted-foreground">

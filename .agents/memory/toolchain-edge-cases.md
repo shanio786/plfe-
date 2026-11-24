@@ -42,3 +42,12 @@ alone do not test that client bridge.
 **How to apply:** Keep the resolver on a Zod 4-compatible release and test both
 valid submissions and invalid field-error results whenever validation versions
 change.
+
+Zod 4 rejects `partial`/`omit` masks naming a field absent from that object schema;
+the failure may surface only when the form resolver parses, not during the build.
+
+**Why:** A shared edit-mode password mask crashed non-identity master forms even
+though create-mode submissions and type checking passed.
+
+**How to apply:** Restrict masks to keys actually present in each schema and cover
+both create and edit parsing across shared master-form schemas.

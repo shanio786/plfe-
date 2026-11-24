@@ -154,8 +154,10 @@ export function CompaniesSection() {
           col("logo", (r) => r.logoAttachmentId
             ? <img src={`${API}/${company}/files/${r.logoAttachmentId}`} alt="" className="h-7 w-7 rounded border object-contain bg-card" />
             : <div className="grid h-7 w-7 place-items-center rounded border border-dashed text-[10px] text-muted-foreground font-mono">{String(r.code ?? "").slice(0, 2)}</div>, false),
-          mono("code"), strong("name"), col("businessType"), col("ntn"), col("strn"), mono("currency"),
-          col("fyStartMonth", (r) => L.months[(Number(r.fyStartMonth)+10)%12] ?? "—"), col("lockDate", (r) => date(r.lockDate)), col("active", (r) => <ActiveTag v={r.active} />),
+          mono("code"), col("name",(r)=><span className="block max-w-[220px] whitespace-normal font-medium">{r.name}</span>,true), col("businessType"),
+          {...col("ntn",(r)=><span className="block max-w-[150px] whitespace-normal text-xs">{r.ntn&&<span className="block">NTN: {r.ntn}</span>}{r.strn&&<span className="block">STRN: {r.strn}</span>}{!r.ntn&&!r.strn&&"—"}</span>),header:"Tax registrations"},
+          mono("currency"),
+          {...col("fyStartMonth", (r) => L.months[(Number(r.fyStartMonth)+10)%12] ?? "—"),header:"Year end"}, col("lockDate", (r) => date(r.lockDate)), col("active", (r) => <ActiveTag v={r.active} />),
         ]}
         toForm={(r) => ({ ...pick(r, ["code", "name", "legalName", "ntn", "strn", "address", "phone", "email"]), businessType:r?.businessType??"EVENTS",currency: r?.currency ?? "PKR", fyStartMonth: String(r?.fyStartMonth ?? 7), active: r?.active ?? true })}
         toPayload={(v) => ({ ...v, fyStartMonth: parseInt(String(v.fyStartMonth), 10) })}

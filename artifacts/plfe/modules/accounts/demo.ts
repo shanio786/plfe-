@@ -14,7 +14,11 @@ export async function seedDemoBooks(actor:Actor,code:string) {
   const companyId=company.id;
   await db.$transaction(tx=>assertDemoOnly(tx,companyId));
   const business=await db.businessType.findUniqueOrThrow({where:{code:company.businessType}});
-  const retail=business.chartKind==="RETAIL",cashAccount=retail?"1110":"1101",bankAccount="1201";
+  const retail=business.chartKind==="RETAIL",bankAccount="1201";
+  // Explicit demo fixtures provision an ordinary named outlet through the same
+  // service as the screen. No runtime template embeds outlet names or counts.
+  const outlet=retail?await saveAccountRecord(actor,company.code,"outlets",{code:"TEST-P2-COUNTER",name:"TEST-P2 demo counter",type:"COUNTER",active:true}):null;
+  const cashAccount=outlet?outlet.accounts.find((a:any)=>a.isCash)!.code:"1101";
   const accounts=await db.account.findMany({where:{companyId,deletedAt:null}});
   const journals=await db.journal.findMany({where:{companyId,deletedAt:null}});
   const department=await db.department.findFirstOrThrow({where:{companyId,code:"EVENTS",deletedAt:null}});
@@ -44,12 +48,12 @@ export async function seedDemoBooks(actor:Actor,code:string) {
     return row;
   }
   const voucher=(index:string,kind:string,dr:string,cr:string,amount:string,partyId?:string)=>document("entries",index,{kind,journalId:journal.id,lines:[
-    {accountId:a(dr),debit:amount,credit:"0.0000",departmentId:department.id},
-    {accountId:a(cr),debit:"0.0000",credit:amount,departmentId:department.id,partyId}
+    {accountId:a(dr),debit:amount,credit:"0.0000",departmentId:department.id,outletId:accounts.find(a=>a.code===dr)?.outletId??null},
+    {accountId:a(cr),debit:"0.0000",credit:amount,departmentId:department.id,partyId,outletId:accounts.find(a=>a.code===cr)?.outletId??null}
   ]});
   const invoice=(index:string,rate:string,account="4100",originalId?:string)=>document("invoices",index,{kind:originalId?"CREDIT_NOTE":"INVOICE",partyId:customer.id,dueDate:date,originalId,lines:[{accountId:a(account),description:"TEST DATA — expo charge",qty:"1.0000",rate,departmentId:department.id}]});
   const bill=(index:string,rate:string,account="5100",originalId?:string)=>document("bills",index,{kind:originalId?"DEBIT_NOTE":"BILL",partyId:supplier.id,dueDate:date,originalId,lines:[{accountId:a(account),description:"TEST DATA — expo cost",qty:"1.0000",rate,departmentId:department.id}]});
-  const payment=(index:string,direction:string,amount:string,cash:boolean,allocations:any[]=[])=>document("payments",index,{direction,method:cash?"CASH":"BANK",partyId:direction==="RECEIPT"?customer.id:supplier.id,settlementAccountId:a(cash?cashAccount:bankAccount),amount,allocations,departmentId:department.id});
+  const payment=(index:string,direction:string,amount:string,cash:boolean,allocations:any[]=[])=>document("payments",index,{direction,method:cash?"CASH":"BANK",partyId:direction==="RECEIPT"?customer.id:supplier.id,settlementAccountId:a(cash?cashAccount:bankAccount),amount,allocations,departmentId:department.id,outletId:cash?outlet?.id??null:null});
   await voucher("01-opening","JOURNAL",bankAccount,"3990","1000000.0000");
   await voucher("02-bank-to-cash","TRANSFER",cashAccount,bankAccount,"100000.0000");
   const inv1=await invoice("03-invoice","100000.0000");

@@ -146,9 +146,9 @@ test("Events and Retail charts contain exact posting/group semantics and aligned
     assert.equal(rows.filter(a=>a.parent?.code==="1600").length,others);
     assert.equal(rows.filter(a=>a.parent?.code==="2500").length,others);
     if(spec.businessType==="RETAIL") {
-      assert.ok(rows.find(a=>a.code==="1110"&&a.isCash));
-      assert.ok(rows.find(a=>a.code==="1120"&&a.isCash));
-      assert.equal(await db.branch.count({where:{companyId:company.id,type:"SHOWROOM",deletedAt:null}}),2);
+      assert.equal(rows.filter(a=>a.outletId!==null).length,0);
+      assert.equal(await db.outlet.count({where:{companyId:company.id}}),0);
+      assert.equal(await db.branch.count({where:{companyId:company.id,type:"SHOWROOM",deletedAt:null}}),0);
       assert.ok(!rows.find(a=>["4200","4300","4400","1410","5300"].includes(a.code)));
     }
     const settings=await db.accountingSettings.findUniqueOrThrow({where:{companyId:company.id},include:{receivableAccount:true,openingEquityAccount:true}});

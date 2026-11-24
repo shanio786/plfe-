@@ -66,7 +66,7 @@ export async function correctDemoChart(actor:Actor,companyCode:string,targetStar
       for(const before of await tx.account.findMany({where:{companyId:company.id,deletedAt:null}})) {
         // Allocated links and their non-posting parents remain permanent, even
         // during this legacy demo-only maintenance operation.
-        if(before.counterpartyCompanyId||await tx.account.findFirst({where:{companyId:company.id,parentId:before.id,counterpartyCompanyId:{not:null}}}))continue;
+        if(before.counterpartyCompanyId||before.outletId||await tx.account.findFirst({where:{companyId:company.id,parentId:before.id,OR:[{counterpartyCompanyId:{not:null}},{outletId:{not:null}}]}}))continue;
         const sums=await tx.journalLine.aggregate({where:{companyId:company.id,accountId:before.id,entry:{status:"POSTED"}},_sum:{debit:true,credit:true}});
         if(!new Prisma.Decimal(sums._sum.debit??"0").eq(sums._sum.credit??"0"))
           throw new AppError(409,"Chart correction refused: old account balance is not zero");
@@ -75,7 +75,7 @@ export async function correctDemoChart(actor:Actor,companyCode:string,targetStar
       }
       const type=await tx.businessType.findUniqueOrThrow({where:{code:company.businessType}});
       const accounts=await installChart(tx,actor,company.id,type.chartKind);
-      for(const [group,root] of [["1600","1000"],["2500","2000"]]) {
+      for(const [group,root] of [["1100","1000"],["1700","1000"],["1600","1000"],["2500","2000"]]) {
         const before=await tx.account.findUniqueOrThrow({where:{id:accounts.get(group)!}});
         if(before.parentId!==accounts.get(root)) {
           const after=await tx.account.update({where:{id:before.id},data:{parentId:accounts.get(root),updatedBy:actor.id}});

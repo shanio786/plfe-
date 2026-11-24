@@ -4,7 +4,7 @@ import {nextDocumentNumber} from "@/lib/numbering";
 import {openFiscal,postEntry,reverseEntry} from "@/lib/posting";
 import type {Actor} from "@/modules/core/model";
 import {billSchema,invoiceSchema,paymentSchema} from "./schema";
-import {dateOnly,delegate,dimensionCheck,meta,record,resourceConfig,settings,type Tx} from "./model";
+import {dateOnly,delegate,dimensionCheck,outletAccountCheck,meta,record,resourceConfig,settings,type Tx} from "./model";
 import {applyAllocations,decimal,outstanding,positive,priceLines,zero} from "./balances";
 import {accountingToday} from "./time";
 
@@ -28,6 +28,7 @@ export async function saveDocument(tx:Tx,actor:Actor,companyId:string,resource:"
     const {allocations,...values}=data as ReturnType<typeof paymentSchema.parse>;
     await dimensionCheck(tx,companyId,values);
     const account=await record(tx,"chart",companyId,values.settlementAccountId);
+    outletAccountCheck(account,values.outletId);
     if(!account.active||account.isGroup||(values.method==="CASH"?!account.isCash:!account.isBank))
       throw new AppError(400,"Choose an active cash or bank account matching the method");
     const payload={...values,amount:positive(values.amount),date:dateOnly(values.date)};
@@ -69,6 +70,8 @@ export async function postDocument(tx:Tx,actor:Actor,companyId:string,resource:"
   if(resource==="payments") {
     const receipt=before.direction==="RECEIPT";
     const account=await record(tx,"chart",companyId,before.settlementAccountId);
+    await dimensionCheck(tx,companyId,before);
+    outletAccountCheck(account,before.outletId);
     if(!account.active||account.isGroup||(before.method==="CASH"?!account.isCash:!account.isBank))
       throw new AppError(400,"Settlement account is no longer available for this method");
     const allocations=before.allocations.map((a:any)=>({invoiceId:a.invoiceId,billId:a.billId,amount:a.amount.toFixed(4)}));

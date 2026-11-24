@@ -13,6 +13,7 @@ import {saveMaster,saveSettings} from "./masters";
 import {cancelDocument,postDocument,saveDocument} from "./documents";
 import {postVoucher,saveVoucher} from "./vouchers";
 import {accountingToday} from "./time";
+import {saveOutlet} from "./outlets";
 
 async function approvalRule(tx:Tx,companyId:string,resource:string,operation:string,target:any) {
   let amount=target.amount;
@@ -61,6 +62,7 @@ export async function saveAccountRecord(actor:Actor,companyCode:string,resource:
   return db.$transaction(async tx=>{
     const company=await companyScope(tx,actor,companyCode,permission),companyId=company.id;
     await ledgerLock(tx,companyId);
+    if(resource==="outlets")return saveOutlet(tx,actor,companyId,raw);
     if(["post","cancel"].includes(raw.operation)) {
       if(!raw.id)throw new AppError(400,"Save a draft first");
       const target=await record(tx,resource,companyId,raw.id);

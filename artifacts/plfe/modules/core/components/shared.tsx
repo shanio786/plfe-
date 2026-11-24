@@ -34,14 +34,14 @@ export function useAdmin() {
 
 export function Tag({ tone = "muted", children }: { tone?: "muted" | "ok" | "warn" | "bad" | "brand" | "teal"; children: ReactNode }) {
   const map = {
-    muted: "bg-muted text-muted-foreground",
-    ok: "bg-success/10 text-success",
-    warn: "bg-accent/20 text-[hsl(30_80%_28%)]",
-    bad: "bg-destructive/10 text-destructive",
-    brand: "bg-primary/10 text-primary",
-    teal: "bg-secondary text-secondary-foreground",
+    muted: "text-muted-foreground border-border",
+    ok: "text-success border-success/35",
+    warn: "text-[hsl(30_70%_30%)] border-[hsl(30_70%_30%)]/35",
+    bad: "text-destructive border-destructive/35",
+    brand: "text-primary border-primary/35",
+    teal: "text-secondary-foreground border-border",
   };
-  return <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${map[tone]}`}>{children}</span>;
+  return <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-sm border px-1 py-px text-[10.5px] font-medium leading-4 ${map[tone]}`}>{children}</span>;
 }
 export function ActiveTag({ v }: { v: unknown }) {
   return v ? <Tag tone="ok">{L.common.active}</Tag> : <Tag>{L.common.inactive}</Tag>;

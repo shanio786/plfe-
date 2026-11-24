@@ -9,6 +9,7 @@ export const accountConfig:Record<AccountResource,{model:string;table:string;obj
   parties:{model:"party",table:"parties",object:"party",search:["code","name","companyName","phone","email","city"]},
   departments:{model:"department",table:"departments",object:"department",search:["code","name"]},
   journals:{model:"journal",table:"journals",object:"journal",search:["code","name"]},
+  outlets:{model:"outlet",table:"outlets",object:"outlet",search:["code","name","address"]},
   invoices:{model:"invoice",table:"invoices",object:"invoice",search:["number","narration"]},
   bills:{model:"bill",table:"bills",object:"bill",search:["number","narration"]},
   payments:{model:"payment",table:"payments",object:"payment",search:["number","narration"]},
@@ -44,9 +45,15 @@ export function dateOnly(value:string|Date) {
   return date;
 }
 export async function dimensionCheck(tx:Tx,companyId:string,line:{departmentId?:string|null;eventId?:string|null;outletId?:string|null}) {
-  if(line.eventId||line.outletId) throw new AppError(400,"Event and outlet tagging becomes available when those modules are built");
+  if(line.eventId) throw new AppError(400,"Event tagging is not available yet; clear the event selection");
+  if(line.outletId&&!await tx.outlet.findFirst({where:{id:line.outletId,companyId,active:true,deletedAt:null}}))
+    throw new AppError(400,"Select an active outlet in this company");
   if(line.departmentId&&!await tx.department.findFirst({where:{id:line.departmentId,companyId,active:true,deletedAt:null}}))
     throw new AppError(400,"Select an active department in this company");
+}
+export function outletAccountCheck(account:{outletId?:string|null},outletId?:string|null) {
+  if(account.outletId&&account.outletId!==outletId)
+    throw new AppError(400,"Choose the outlet that owns this cash or inventory account");
 }
 export async function settings(tx:Tx,companyId:string) {
   const s=await tx.accountingSettings.findFirst({where:{companyId,deletedAt:null}});

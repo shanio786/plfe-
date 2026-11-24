@@ -40,10 +40,8 @@ export async function initializeGroup(tx:Tx,actor:Actor) {
 }
 
 export async function initializeCompanyCalendar(tx:Tx,actor:Actor,company:{id:string;code:string;fyStartMonth:number;businessType:string}) {
-  const business=await tx.businessType.findUniqueOrThrow({where:{code:company.businessType}});
   for(const [code,name,type] of [
-    ["HQ","Head Office","OFFICE"],
-    ...(business.chartKind==="RETAIL"?[["SR1","Showroom 1","SHOWROOM"],["SR2","Showroom 2","SHOWROOM"]]:[])
+    ["HQ","Head Office","OFFICE"]
   ]) {
     if(!await tx.branch.findFirst({where:{companyId:company.id,code,deletedAt:null}})) {
       const branch=await tx.branch.create({data:{companyId:company.id,code:code!,name:name!,type:type!,...meta(actor)}});

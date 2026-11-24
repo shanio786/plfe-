@@ -9,6 +9,13 @@ const day=z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 export const tags={departmentId:dimension,eventId:dimension,outletId:dimension};
 export const accountSchema=z.object({code:text,name:text,type:z.enum(["ASSET","LIABILITY","EQUITY","INCOME","EXPENSE"]),parentId:dimension,isGroup:z.boolean().default(false),isBank:z.boolean().default(false),isCash:z.boolean().default(false),active:z.boolean().default(true)});
 export const departmentSchema=z.object({code:text,name:text,active:z.boolean().default(true)});
+export const outletSchema=z.object({
+  code:z.string().trim().regex(/^[A-Za-z0-9-]{1,30}$/,"Use a code of up to 30 letters, numbers or hyphens").transform(s=>s.toUpperCase()),
+  name:z.string().trim().min(1,"Enter the outlet name").max(200,"Keep the outlet name to 200 characters"),
+  type:z.enum(["SHOWROOM","COUNTER","GATE","OFFICE"],{error:"Choose Showroom, Counter, Gate or Office"}),
+  address:z.string().trim().max(2000,"Keep the address to 2,000 characters").nullish().transform(v=>v||null),
+  active:z.boolean().default(true)
+});
 export const journalSchema=z.object({code:text,name:text,type:z.enum(["SALES","PURCHASE","BANK","CASH","GENERAL"]),active:z.boolean().default(true)});
 export const provinces=["Punjab","Sindh","Khyber Pakhtunkhwa","Balochistan","Islamabad Capital Territory"] as const;
 const province=z.preprocess(v=>v===""?null:v,z.enum(provinces).nullish());
@@ -19,7 +26,7 @@ export const billSchema=invoiceSchema.extend({kind:z.enum(["BILL","DEBIT_NOTE"])
 export const ledgerLineSchema=z.object({accountId:uuid,debit:amount.default("0.0000"),credit:amount.default("0.0000"),partyId:dimension,memo:optional,...tags});
 export const entrySchema=z.object({journalId:uuid,kind:z.enum(["JOURNAL","CASH","BANK","TRANSFER","EXPENSE"]).default("JOURNAL"),date:day,narration:optional,lines:z.array(ledgerLineSchema).min(2).max(200)});
 export const allocationSchema=z.object({invoiceId:dimension,billId:dimension,amount});
-export const paymentSchema=z.object({direction:z.enum(["RECEIPT","PAYMENT"]),method:z.enum(["CASH","BANK"]),partyId:uuid,date:day,settlementAccountId:uuid,amount,narration:optional,departmentId:dimension,allocations:z.array(allocationSchema).max(200).default([])});
+export const paymentSchema=z.object({direction:z.enum(["RECEIPT","PAYMENT"]),method:z.enum(["CASH","BANK"]),partyId:uuid,date:day,settlementAccountId:uuid,amount,narration:optional,...tags,allocations:z.array(allocationSchema).max(200).default([])});
 export const settingsSchema=z.object({receivableAccountId:uuid,payableAccountId:uuid,openingEquityAccountId:uuid,salesJournalId:uuid,purchaseJournalId:uuid,generalJournalId:uuid,cashJournalId:uuid,bankJournalId:uuid});
-export const accountResources=["chart","parties","departments","journals","invoices","bills","payments","entries","settings"] as const;
+export const accountResources=["chart","parties","departments","journals","outlets","invoices","bills","payments","entries","settings"] as const;
 export type AccountResource=typeof accountResources[number];

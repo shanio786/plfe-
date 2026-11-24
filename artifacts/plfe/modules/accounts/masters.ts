@@ -46,6 +46,8 @@ async function protectReferences(tx:Tx,companyId:string,resource:string,id:strin
 export async function saveMaster(tx:Tx,actor:Actor,companyId:string,resource:string,raw:any) {
   const cfg=resourceConfig(resource),model=delegate(tx,resource);
   const before=raw.id?await record(tx,resource,companyId,raw.id):null;
+  if(resource==="chart"&&before?.outletId)
+    throw new AppError(409,"This account is managed by its outlet; edit or deactivate the outlet instead");
   if(raw.operation==="delete") {
     if(!before)throw new AppError(404,"Record not found");
     await protectReferences(tx,companyId,resource,before.id,true);

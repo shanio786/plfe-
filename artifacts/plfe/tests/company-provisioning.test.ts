@@ -78,10 +78,11 @@ test("Seventh screen service company receives complete Events setup and permanen
 test("Retail uses business-type data regardless of code, and failed provisioning rolls back",async()=>{
   const source=await db.company.findFirstOrThrow();
   const company=await saveRecord(owner,source.code,"companies",{code:"OTHER-RETAIL",name:"Unrelated retailer",legalName:"Unrelated retailer",businessType:"RETAIL",fyStartMonth:1});
-  assert.equal(await db.branch.count({where:{companyId:company.id,type:"SHOWROOM"}}),2);
-  assert.equal(await db.account.count({where:{companyId:company.id,isCash:true,code:{in:["1110","1120"]}}}),2);
+  assert.equal(await db.outlet.count({where:{companyId:company.id}}),0);
+  assert.equal(await db.account.count({where:{companyId:company.id,outletId:{not:null}}}),0);
+  assert.equal(await db.branch.count({where:{companyId:company.id,type:"SHOWROOM"}}),0);
   assert.equal(await db.account.count({where:{companyId:company.id,code:"4200"}}),0);
-  assert.equal(await db.account.count({where:{companyId:company.id,code:"1701"}}),1);
+  assert.equal(await db.account.count({where:{companyId:company.id,code:"1700",isGroup:true}}),1);
   const before=await db.company.count();
   await assert.rejects(()=>db.$transaction(async tx=>{
     await provisionCompany(tx,owner,{code:"ROLLBACK",name:"Rollback",legalName:"Rollback"});

@@ -8,10 +8,12 @@ import {listSchema} from "@/modules/core/schema";
 import type {Actor} from "@/modules/core/model";
 import {dateOnly,record,type Tx} from "./model";
 import {zero} from "./balances";
+import {accountingToday} from "./time";
 const reportPageSchema=listSchema.extend({pageSize:z.coerce.number().int().min(1).max(1000).default(100)});
 
 async function conditions(tx:Tx,companyId:string,raw:Record<string,string>) {
-  for(const [key,resource] of [["accountId","chart"],["partyId","parties"],["departmentId","departments"]])
+  if(raw.eventId)throw new AppError(400,"Event reporting is not available yet; clear the event filter");
+  for(const [key,resource] of [["accountId","chart"],["partyId","parties"],["departmentId","departments"],["outletId","outlets"]])
     if(raw[key!])await record(tx,resource!,companyId,raw[key!]!);
   const from=dateOnly(raw.from||"1900-01-01"),to=dateOnly(raw.to||"9999-12-31");
   if(from>to)throw new AppError(400,"The start date must not follow the end date");
@@ -50,11 +52,12 @@ export async function accountsReport(actor:Actor,code:string,report:string,raw:R
     const partition=report==="ledger"&&!raw.accountId?Prisma.sql`PARTITION BY l.account_id`:Prisma.empty;
     const book=Prisma.sql`SELECT l.id,e.date,e.number,e.id AS "entryId",l.line_no,l.account_id AS "accountId",
       a.code AS "accountCode",a.name AS "accountName",l.party_id AS "partyId",p.name AS "partyName",
-      l.department_id AS "departmentId",l.debit,l.credit,l.memo,e.source_type AS "sourceType",e.source_id AS "sourceId",
+      l.department_id AS "departmentId",l.outlet_id AS "outletId",o.name AS "outletName",l.debit,l.credit,l.memo,e.source_type AS "sourceType",e.source_id AS "sourceId",
       sum(l.debit-l.credit) OVER (${partition} ORDER BY e.date,e.number,l.line_no,l.id ROWS UNBOUNDED PRECEDING) AS balance
       FROM journal_lines l JOIN journal_entries e ON e.id=l.entry_id AND e.company_id=l.company_id
       JOIN accounts a ON a.id=l.account_id AND a.company_id=l.company_id
-      LEFT JOIN parties p ON p.id=l.party_id AND p.company_id=l.company_id WHERE ${filter}`;
+      LEFT JOIN parties p ON p.id=l.party_id AND p.company_id=l.company_id
+      LEFT JOIN outlets o ON o.id=l.outlet_id AND o.company_id=l.company_id WHERE ${filter}`;
     const [totals]:any[]=await tx.$queryRaw(Prisma.sql`WITH book AS (${book}) SELECT
       count(*) FILTER(WHERE date>=${from})::int AS total,
       coalesce(sum(debit) FILTER(WHERE date>=${from}),0) AS debit,
@@ -85,8 +88,9 @@ export async function accountsOverview(actor:Actor,code:string) {
       coalesce((SELECT sum(total) FROM bills WHERE company_id=${companyId}::uuid AND status='POSTED' AND kind='BILL' AND deleted_at IS NULL),0)
       -coalesce((SELECT sum(total) FROM bills WHERE company_id=${companyId}::uuid AND status='POSTED' AND kind='DEBIT_NOTE' AND deleted_at IS NULL),0)
       -coalesce((SELECT sum(a.amount) FROM payment_allocations a JOIN payments p ON p.id=a.payment_id AND p.company_id=a.company_id WHERE a.company_id=${companyId}::uuid AND a.bill_id IS NOT NULL AND a.deleted_at IS NULL AND p.status='POSTED' AND p.deleted_at IS NULL),0) AS amount`;
-    const recentEntries=await tx.journalEntry.findMany({where:{companyId,status:"POSTED",deletedAt:null},take:8,orderBy:[{date:"desc"},{createdAt:"desc"}],include:{journal:true}});
+    const recent=await tx.journalEntry.findMany({where:{companyId,status:"POSTED",deletedAt:null},take:8,orderBy:[{date:"desc"},{createdAt:"desc"}],include:{journal:true,lines:{where:{companyId,deletedAt:null},select:{debit:true}}}});
+    const recentEntries=recent.map(({lines,...entry})=>({...entry,totalDebit:lines.reduce((total,line)=>total.add(line.debit),zero()).toFixed(4)}));
     const postedEntries=await tx.journalEntry.count({where:{companyId,status:"POSTED",deletedAt:null}});
-    return redact({id:companyId,companyName:c.name,invoiceOutstanding:receivables.amount.toFixed(4),billOutstanding:payables.amount.toFixed(4),cashBalance:cash.cash.toFixed(4),bankBalance:cash.bank.toFixed(4),postedEntries,recentEntries});
+    return redact({id:companyId,date:accountingToday(),companyName:c.name,invoiceOutstanding:receivables.amount.toFixed(4),billOutstanding:payables.amount.toFixed(4),cashBalance:cash.cash.toFixed(4),bankBalance:cash.bank.toFixed(4),postedEntries,recentEntries});
   });
 }

@@ -8,11 +8,7 @@ export function chartTemplate(chartKind:string):Row[] {
   const rows:Row[]=[
     ["1000","Assets","ASSET",null,"group"],
     ["1100","Cash in hand","ASSET","1000","group"],
-    ...(retail ? [
-      ["1110","POS cash - Showroom 1","ASSET","1100","cash"],
-      ["1120","POS cash - Showroom 2","ASSET","1100","cash"],
-      ["1130","Card receivable","ASSET","1000",""]
-    ] as Row[] : [["1101","Cash in hand - Head Office","ASSET","1100","cash"]] as Row[]),
+    ...(retail ? [["1130","Card receivable","ASSET","1000",""]] as Row[] : [["1101","Cash in hand - Head Office","ASSET","1100","cash"]] as Row[]),
     ["1150","Petty cash","ASSET","1000","cash"],
     ["1200","Bank accounts","ASSET","1000","group"],
     ["1201","Bank current account","ASSET","1200","bank"],
@@ -23,11 +19,7 @@ export function chartTemplate(chartKind:string):Row[] {
     ["1500","Input sales tax","ASSET","1000",""],
     ["1510","Advance income tax / withholding tax deducted by customers","ASSET","1000",""],
     ["1600","Due from group companies","ASSET","1000","group"],
-    ...(retail ? [
-      ["1700","Inventory","ASSET","1000","group"],
-      ["1701","Inventory - Showroom 1","ASSET","1700",""],
-      ["1702","Inventory - Showroom 2","ASSET","1700",""]
-    ] as Row[] : []),
+    ["1700","Inventory","ASSET","1000","group"],
     ["1800","Fixed assets","ASSET","1000",""],
     ["1890","Accumulated depreciation","ASSET","1000",""],
     ["2000","Liabilities","LIABILITY",null,"group"],

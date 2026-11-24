@@ -9,12 +9,13 @@ import { DataTable } from "@/modules/core/components/data-table";
 import { RecordForm, type Field } from "@/modules/core/components/record-form";
 import { ActiveTag, Tag, useAction, useAdmin } from "@/modules/core/components/shared";
 import { dateTime } from "@/modules/core/components/format";
-import { accountSchema, departmentSchema, journalSchema, partySchema, provinces } from "../schema";
-import { A, EmptyBox, ErrorBox, Money, col, perm, useAll, useDeepId, useOp, type Col } from "./util";
+import { accountSchema, departmentSchema, journalSchema, outletSchema, partySchema, provinces } from "../schema";
+import { A, OUTLET_TYPES, EmptyBox, ErrorBox, Money, col, perm, useAll, useDeepId, useOp, type Col } from "./util";
 import { DetailDialog, Facts, useRecord } from "./detail";
 
 type MasterCfg = {
-  resource: "chart" | "parties" | "departments" | "journals";
+  resource: "chart" | "parties" | "departments" | "journals" | "outlets";
+  noDelete?: boolean;
   schema: any;
   fields: Field[];
   columns: Col[];
@@ -34,11 +35,11 @@ function Master(cfg: MasterCfg) {
   const [id, setId] = useDeepId();
   const [form, setForm] = useState<{ edit: RecordData | null } | null>(null);
   const [key, setKey] = useState(0);
-  const [view, setView] = useState<"alt" | "table">(cfg.alt ? "alt" : "table");
+  const [view, setView] = useState<"alt" | "table">("table");
   const { rec, error, retry } = useRecord(cfg.resource, id, key);
   const mayCreate = can(perm(cfg.resource, "create"));
   const mayUpdate = can(perm(cfg.resource, "update"));
-  const mayDelete = can(perm(cfg.resource, "delete"));
+  const mayDelete = !cfg.noDelete && can(perm(cfg.resource, "delete"));
 
   const submit = async (v: Record<string, any>) => {
     const data = { ...v };
@@ -54,7 +55,7 @@ function Master(cfg: MasterCfg) {
           <button className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${view === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`} onClick={() => setView("table")} data-testid="button-view-table"><Table2 className="h-3.5 w-3.5" />{A.a.table}</button>
         </div>
       )}
-      <Button size="sm" disabled={!mayCreate} title={mayCreate ? undefined : L.common.denied} onClick={() => setForm({ edit: null })} data-testid={`button-new-${cfg.resource}`}>{mayCreate ? <Plus /> : <Lock />}{cfg.newLabel}</Button>
+      <Button size="sm" disabled={!mayCreate} title={mayCreate ? A.a.newShortcut : L.common.denied} onClick={() => setForm({ edit: null })} data-testid={`button-new-${cfg.resource}`} data-new-doc aria-keyshortcuts="Control+Alt+N">{mayCreate ? <Plus /> : <Lock />}{cfg.newLabel}</Button>
     </>
   );
   return (
@@ -95,7 +96,7 @@ function Master(cfg: MasterCfg) {
 const typeOpts = Object.entries(A.types).map(([value, label]) => ({ value, label }));
 const activeCol = col("active", (r) => <ActiveTag v={r.active} />);
 const codeCol = col("code", (r) => <span className="font-mono text-xs font-semibold">{r.code}</span>, true);
-const nameCol = col("name", (r) => <span className="font-medium">{r.name}</span>, true);
+const nameCol = col("name", (r) => <span className="block max-w-[220px] whitespace-normal font-medium">{r.name}</span>, true);
 
 /* ---------------- Chart of accounts ---------------- */
 function Flags({ r }: { r: RecordData }) {
@@ -206,6 +207,44 @@ export function JournalsSection() {
       fields={[{ name: "code", kind: "text" }, { name: "name", kind: "text" }, { name: "type", kind: "select", options: opts }, { name: "active", kind: "switch" }]}
       columns={[codeCol, nameCol, col("type", (r) => <Tag tone="teal">{A.kinds[r.type] ?? r.type}</Tag>, true), activeCol]}
       facts={(r) => [[L.f.code, r.code], [L.f.type, A.kinds[r.type] ?? r.type], [L.common.status, r.active ? L.common.active : L.common.inactive], [L.f.createdAt, dateTime(r.createdAt)]]}
+    />
+  );
+}
+
+/* ---------------- Outlets ---------------- */
+function OutletAccounts({ r }: { r: RecordData }) {
+  const { company } = useAdmin();
+  const rows: RecordData[] = Array.isArray(r.accounts) ? r.accounts : [];
+  return (
+    <div className="mt-4 border-t pt-3">
+      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{A.a.outletAccounts}</div>
+      {rows.length === 0 ? <p className="text-sm text-muted-foreground">{A.a.noOutletAccounts}</p> : (
+        <table className="w-full text-sm" data-testid="table-outlet-accounts">
+          <thead><tr className="border-b text-left text-[11px] uppercase tracking-[0.06em] text-muted-foreground"><th className="py-1.5 pr-3 font-semibold">{A.f.code}</th><th className="py-1.5 pr-3 font-semibold">{A.f.name}</th><th className="py-1.5 pr-3 font-semibold">{A.f.parent}</th><th className="py-1.5 font-semibold" /></tr></thead>
+          <tbody>
+            {rows.map((a) => (
+              <tr key={a.id} className="border-b last:border-0" data-testid={`row-outlet-account-${a.id}`}>
+                <td className="py-1.5 pr-3 font-mono text-xs">{a.code}</td>
+                <td className="py-1.5 pr-3">{a.name} <span className="text-[11px] text-muted-foreground">{a.isCash ? A.a.cashTag : a.parent?.code === "1700" ? A.a.inventoryTag : ""}</span></td>
+                <td className="py-1.5 pr-3 font-mono text-xs text-muted-foreground">{a.parent?.code ?? "—"}</td>
+                <td className="py-1.5 text-right"><Link href={`/${company}/accounts/ledger?accountId=${a.id}`} className="text-xs text-primary hover:underline">{A.a.ledgerOf}</Link></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+export function OutletsSection() {
+  const opts = OUTLET_TYPES.map((value) => ({ value, label: A.outletTypes[value] }));
+  return (
+    <Master resource="outlets" schema={outletSchema} newLabel={A.a.newOutlet} noDelete defaults={{ code: "", name: "", type: "SHOWROOM", address: "", active: true }}
+      toForm={(r) => ({ code: r.code, name: r.name, type: r.type, address: r.address ?? "", active: !!r.active })}
+      fields={[{ name: "code", kind: "text" }, { name: "name", kind: "text" }, { name: "type", kind: "select", options: opts }, { name: "active", kind: "switch", hint: A.a.outletDeactivate }, { name: "address", kind: "textarea" }]}
+      columns={[codeCol, nameCol, col("type", (r) => <span className="text-xs">{A.outletTypes[r.type] ?? r.type}</span>, true), col("address", (r) => <span className="block max-w-[28ch] truncate text-xs text-muted-foreground">{r.address || "—"}</span>), col("accounts", (r) => <span className="font-mono text-xs">{Array.isArray(r.accounts) ? r.accounts.map((a: RecordData) => a.code).join(", ") || "—" : "—"}</span>), activeCol]}
+      facts={(r) => [[L.f.code, r.code], [A.f.type, A.outletTypes[r.type] ?? r.type], [L.f.address, r.address || "—"], [L.common.status, r.active ? L.common.active : L.common.inactive], [L.f.createdAt, dateTime(r.createdAt)]]}
+      extraView={(r) => <OutletAccounts r={r} />}
     />
   );
 }

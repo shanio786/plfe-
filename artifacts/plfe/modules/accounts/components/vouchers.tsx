@@ -15,7 +15,7 @@ import { DataTable } from "@/modules/core/components/data-table";
 import { useAdmin } from "@/modules/core/components/shared";
 import { date, isoDay } from "@/modules/core/components/format";
 import { entrySchema } from "../schema";
-import { A, AMOUNT_RE, Amt, DocStatus, KindTag, Money, PickSelect, Section, col, dec, fix4, label, perm, sum, useDeepId, useLookups, useOp } from "./util";
+import { A, AMOUNT_RE, Amt, OutletTag, outletFor, outletOpts, DocStatus, KindTag, Money, PickSelect, Section, col, dec, fix4, label, perm, sum, useDeepId, useLookups, useOp , numCol , LineField } from "./util";
 import { Attachments, DetailDialog, Facts, useRecord } from "./detail";
 import { sourceHref, useLifecycle } from "./lifecycle";
 
@@ -23,7 +23,7 @@ const MANUAL = ["JOURNAL", "CASH", "BANK", "TRANSFER", "EXPENSE"];
 const ALL_KINDS = [...MANUAL, "SALES", "PURCHASE", "INVOICE", "CREDIT_NOTE", "BILL", "DEBIT_NOTE", "RECEIPT", "PAYMENT", "REVERSAL"];
 const JOURNAL_FOR: Record<string, string> = { JOURNAL: "GENERAL", CASH: "CASH", BANK: "BANK", TRANSFER: "GENERAL", EXPENSE: "GENERAL" };
 const today = () => new Date(Date.now() + 5 * 3600000).toISOString().slice(0, 10);
-type LLine = { accountId: string; debit: string; credit: string; partyId: string | null; memo: string; departmentId: string | null; eventId: null; outletId: null };
+type LLine = { accountId: string; debit: string; credit: string; partyId: string | null; memo: string; departmentId: string | null; eventId: null; outletId: string | null };
 const blank = (): LLine => ({ accountId: "", debit: "", credit: "", partyId: null, memo: "", departmentId: null, eventId: null, outletId: null });
 
 export function VouchersSection() {
@@ -61,14 +61,14 @@ export function VouchersSection() {
       </div>
       <DataTable company={company} resource="accounts/entries" refreshKey={key} extra={extra} onRowClick={(r) => setId(r.id)}
         statusOptions={["DRAFT", "POSTED", "CANCELLED"].map((value) => ({ value, label: A.status[value] }))}
-        toolbar={<Button size="sm" disabled={!mayCreate} onClick={() => setEditor({ rec: null })} data-testid="button-new-voucher">{mayCreate ? <Plus /> : <Lock />}{A.a.newVoucher}</Button>}
+        toolbar={<Button size="sm" disabled={!mayCreate} title={A.a.newShortcut} onClick={() => setEditor({ rec: null })} data-testid="button-new-voucher" data-new-doc aria-keyshortcuts="Control+Alt+N">{mayCreate ? <Plus /> : <Lock />}{A.a.newVoucher}</Button>}
         columns={[
           col("number", (r) => <span className="font-mono text-xs font-semibold">{r.number ?? <span className="text-muted-foreground">{A.status.DRAFT}</span>}</span>, true),
           col("date", (r) => <span className="font-mono text-xs">{date(r.date)}</span>, true),
           col("kind", (r) => <span className="inline-flex items-center gap-1">{r.kind === "REVERSAL" && <Undo2 className="h-3 w-3 text-destructive" />}<KindTag k={r.kind} /></span>),
           col("journal", (r) => <span className="text-xs">{r.journal?.code ?? "—"}</span>),
           col("narration", (r) => <span className="block max-w-[280px] truncate text-xs text-muted-foreground">{r.narration ?? "—"}</span>),
-          col("debit", (r) => <Amt v={r.totalDebit ?? r.total ?? r.debit} className="font-semibold" />),
+          numCol("debit", (r) => r.totalDebit ?? r.total ?? r.debit, false, true),
           col("status", (r) => <span className="inline-flex items-center gap-1"><DocStatus s={r.status} />{Array.isArray(r.reversals) && r.reversals.length > 0 && <span className="text-[10px] font-semibold uppercase text-destructive">{A.a.reversedBy}</span>}</span>),
         ]} />
       <DetailDialog open={!!id} onClose={() => setId(null)} error={error} retry={retry} loading={!rec}
@@ -106,18 +106,18 @@ function EntryLinesTable({ lines }: { lines: RecordData[] }) {
     <Section title={A.f.lines}>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead><tr className="border-b text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"><th className="px-3 py-2">{A.f.account}</th><th className="px-3 py-2">{A.f.party}</th><th className="px-3 py-2">{A.f.department}</th><th className="px-3 py-2">{A.f.memo}</th><th className="px-3 py-2 text-right">{A.f.debit}</th><th className="px-3 py-2 text-right">{A.f.credit}</th></tr></thead>
+          <thead><tr className="border-b text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"><th className="px-3 py-2">{A.f.account}</th><th className="px-3 py-2">{A.f.party}</th><th className="px-3 py-2">{A.f.department}</th><th className="px-3 py-2">{A.f.outlet}</th><th className="px-3 py-2">{A.f.memo}</th><th className="px-3 py-2 text-right">{A.f.debit}</th><th className="px-3 py-2 text-right">{A.f.credit}</th></tr></thead>
           <tbody>
             {lines.map((l) => (
               <tr key={l.id} className="border-b">
                 <td className="px-3 py-2"><span className="font-mono text-xs text-muted-foreground">{l.account?.code}</span> {l.account?.name}</td>
-                <td className="px-3 py-2 text-xs">{l.party?.name ?? "—"}</td><td className="px-3 py-2 text-xs text-muted-foreground">{l.department?.name ?? "—"}</td>
+                <td className="px-3 py-2 text-xs">{l.party?.name ?? "—"}</td><td className="px-3 py-2 text-xs text-muted-foreground">{l.department?.name ?? "—"}</td><td className="px-3 py-2"><OutletTag o={l.outlet} /></td>
                 <td className="px-3 py-2 text-xs text-muted-foreground">{l.memo ?? ""}</td>
                 <td className="px-3 py-2 text-right"><Amt v={l.debit} /></td><td className="px-3 py-2 text-right"><Amt v={l.credit} /></td>
               </tr>
             ))}
           </tbody>
-          <tfoot><tr className="bg-muted/40 font-semibold"><td colSpan={4} className="px-3 py-2 text-right text-[11px] uppercase tracking-[0.1em] text-muted-foreground">{A.f.total}</td><td className="px-3 py-2 text-right"><Amt v={fix4(dr)} /></td><td className="px-3 py-2 text-right"><Amt v={fix4(cr)} /></td></tr></tfoot>
+          <tfoot><tr className="bg-muted/40 font-semibold"><td colSpan={5} className="px-3 py-2 text-right text-[11px] uppercase tracking-[0.1em] text-muted-foreground">{A.f.total}</td><td className="px-3 py-2 text-right"><Amt v={fix4(dr)} /></td><td className="px-3 py-2 text-right"><Amt v={fix4(cr)} /></td></tr></tfoot>
         </table>
       </div>
     </Section>
@@ -127,10 +127,11 @@ function EntryLinesTable({ lines }: { lines: RecordData[] }) {
 function VoucherEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onClose: () => void; onSaved: (r: RecordData) => void }) {
   const op = useOp();
   const [error, setError] = useState<string | null>(null);
-  const { chart, parties, departments, journals } = useLookups(true);
+  const { chart, parties, departments, journals, outlets } = useLookups(true);
+  const [outletWarn, setOutletWarn] = useState<Record<number, string>>({});
   const form = useForm<any>({
     resolver: zodResolver(entrySchema as any) as any,
-    defaultValues: rec ? { journalId: rec.journalId, kind: rec.kind, date: isoDay(rec.date), narration: rec.narration ?? "", lines: (rec.lines ?? []).map((l: RecordData) => ({ accountId: l.accountId, debit: dec(l.debit).isZero() ? "" : String(l.debit), credit: dec(l.credit).isZero() ? "" : String(l.credit), partyId: l.partyId ?? null, memo: l.memo ?? "", departmentId: l.departmentId ?? null, eventId: null, outletId: null })) }
+    defaultValues: rec ? { journalId: rec.journalId, kind: rec.kind, date: isoDay(rec.date), narration: rec.narration ?? "", lines: (rec.lines ?? []).map((l: RecordData) => ({ accountId: l.accountId, debit: dec(l.debit).isZero() ? "" : String(l.debit), credit: dec(l.credit).isZero() ? "" : String(l.credit), partyId: l.partyId ?? null, memo: l.memo ?? "", departmentId: l.departmentId ?? null, eventId: null, outletId: l.outletId ?? null })) }
       : { journalId: "", kind: "JOURNAL", date: today(), narration: "", lines: [blank(), blank()] },
   });
   const lines = useFieldArray({ control: form.control, name: "lines" });
@@ -148,7 +149,7 @@ function VoucherEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
   const submit = form.handleSubmit(async (v) => {
     setError(null);
     try {
-      const body = { operation: "save", ...(rec ? { id: rec.id } : {}), ...v, lines: v.lines.map((l: LLine) => ({ accountId: l.accountId, debit: l.debit || "0.0000", credit: l.credit || "0.0000", partyId: l.partyId || null, memo: l.memo || null, departmentId: l.departmentId || null, eventId: null, outletId: null })) };
+      const body = { operation: "save", ...(rec ? { id: rec.id } : {}), ...v, lines: v.lines.map((l: LLine) => ({ accountId: l.accountId, debit: l.debit || "0.0000", credit: l.credit || "0.0000", partyId: l.partyId || null, memo: l.memo || null, departmentId: l.departmentId || null, eventId: null, outletId: l.outletId || null })) };
       const r = await op("entries", body);
       onSaved(r as RecordData); onClose();
     } catch (e: any) { setError(e.message); }
@@ -175,31 +176,31 @@ function VoucherEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
             <div className="space-y-1.5"><Label>{A.f.date}</Label><Input type="date" {...form.register("date")} data-testid="input-voucher-date" /></div>
           </div>
           <div className="overflow-hidden rounded-lg border">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[960px] text-sm">
-                <thead className="bg-muted/50"><tr className="text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"><th className="w-8 px-2 py-2">#</th><th className="px-2 py-2">{A.f.account}</th><th className="w-48 px-2 py-2">{A.f.party}</th><th className="w-40 px-2 py-2">{A.f.department}</th><th className="px-2 py-2">{A.f.memo}</th><th className="w-32 px-2 py-2 text-right">{A.f.debit}</th><th className="w-32 px-2 py-2 text-right">{A.f.credit}</th><th className="w-8" /></tr></thead>
-                <tbody>
-                  {lines.fields.map((f, i) => {
-                    const le = errs.lines?.[i];
-                    return (
-                      <tr key={f.id} className="border-t">
-                        <td className="px-2 font-mono text-xs text-muted-foreground">{i + 1}</td>
-                        <td className="px-1 py-1"><Controller control={form.control} name={`lines.${i}.accountId`} render={({ field }) => <PickSelect value={field.value} onChange={(v) => field.onChange(v ?? "")} options={acctOpts} placeholder={A.f.account} className={le?.accountId ? "border-destructive" : ""} testId={`select-vline-account-${i}`} />} /></td>
-                        <td className="px-1 py-1"><Controller control={form.control} name={`lines.${i}.partyId`} render={({ field }) => <PickSelect value={field.value} onChange={field.onChange} allowNone options={parties.rows.map((p) => ({ value: p.id, label: label(p) }))} testId={`select-vline-party-${i}`} />} /></td>
-                        <td className="px-1 py-1"><Controller control={form.control} name={`lines.${i}.departmentId`} render={({ field }) => <PickSelect value={field.value} onChange={field.onChange} allowNone options={departments.rows.filter((d) => d.active !== false).map((d) => ({ value: d.id, label: label(d) }))} testId={`select-vline-dept-${i}`} />} /></td>
-                        <td className="px-1 py-1"><Input className="h-8" {...form.register(`lines.${i}.memo`)} data-testid={`input-vline-memo-${i}`} /></td>
-                        <td className="px-1 py-1"><Input inputMode="decimal" className={`h-8 text-right font-mono ${le?.debit ? "border-destructive" : ""}`} {...form.register(`lines.${i}.debit`)} data-testid={`input-vline-debit-${i}`} /></td>
-                        <td className="px-1 py-1"><Input inputMode="decimal" className={`h-8 text-right font-mono ${le?.credit ? "border-destructive" : ""}`} {...form.register(`lines.${i}.credit`)} data-testid={`input-vline-credit-${i}`} /></td>
-                        <td className="px-1"><Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={lines.fields.length <= 2} onClick={() => lines.remove(i)} title={A.a.removeLine} data-testid={`button-remove-vline-${i}`}><Trash2 className="h-3.5 w-3.5" /></Button></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            <ol className="divide-y" data-testid="list-voucher-lines">
+              {lines.fields.map((f, i) => {
+                const le = errs.lines?.[i];
+                return (
+                  <li key={f.id} className="px-3 py-2" data-testid={`vline-${i}`}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="font-mono text-[11px] text-muted-foreground">{A.a.line} {i + 1}</span>
+                      <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground" disabled={lines.fields.length <= 2} onClick={() => lines.remove(i)} data-testid={`button-remove-vline-${i}`}><Trash2 className="h-3 w-3" />{A.a.removeLine}</Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-12">
+                      <LineField label={A.f.account} className="col-span-2 sm:col-span-5" error={le?.accountId && A.a.pickAccount}><Controller control={form.control} name={`lines.${i}.accountId`} render={({ field }) => <PickSelect value={field.value} onChange={(v) => { field.onChange(v ?? ""); const o = outletFor(chart.rows, v, form.getValues(`lines.${i}.outletId`)); if (o.set) form.setValue(`lines.${i}.outletId`, o.set); setOutletWarn((w) => ({ ...w, [i]: o.warn ?? "" })); }} options={acctOpts} placeholder={A.f.account} className={`w-full ${le?.accountId ? "border-destructive" : ""}`} testId={`select-vline-account-${i}`} />} /></LineField>
+                      <LineField label={A.f.party} className="col-span-2 sm:col-span-4"><Controller control={form.control} name={`lines.${i}.partyId`} render={({ field }) => <PickSelect value={field.value} onChange={field.onChange} allowNone className="w-full" options={parties.rows.map((p) => ({ value: p.id, label: label(p) }))} testId={`select-vline-party-${i}`} />} /></LineField>
+                      <LineField label={A.f.memo} className="col-span-2 sm:col-span-3"><Input className="h-8" {...form.register(`lines.${i}.memo`)} data-testid={`input-vline-memo-${i}`} /></LineField>
+                      <LineField label={A.f.department} className="sm:col-span-3"><Controller control={form.control} name={`lines.${i}.departmentId`} render={({ field }) => <PickSelect value={field.value} onChange={field.onChange} allowNone className="w-full" options={departments.rows.filter((d) => d.active !== false).map((d) => ({ value: d.id, label: label(d) }))} testId={`select-vline-dept-${i}`} />} /></LineField>
+                      <LineField label={A.f.outlet} className="sm:col-span-3" error={outletWarn[i]}><Controller control={form.control} name={`lines.${i}.outletId`} render={({ field }) => <PickSelect value={field.value} onChange={(v) => { field.onChange(v); setOutletWarn((w) => ({ ...w, [i]: "" })); }} allowNone className="w-full" options={outletOpts(outlets.rows, field.value)} testId={`select-vline-outlet-${i}`} />} /></LineField>
+                      <LineField label={A.f.debit} className="sm:col-span-3" error={le?.debit && A.a.enterAmount}><Input inputMode="decimal" className={`h-8 text-right font-mono ${le?.debit ? "border-destructive" : ""}`} {...form.register(`lines.${i}.debit`)} data-testid={`input-vline-debit-${i}`} /></LineField>
+                      <LineField label={A.f.credit} className="sm:col-span-3" error={le?.credit && A.a.enterAmount}><Input inputMode="decimal" className={`h-8 text-right font-mono ${le?.credit ? "border-destructive" : ""}`} {...form.register(`lines.${i}.credit`)} data-testid={`input-vline-credit-${i}`} /></LineField>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
             <div className="flex flex-wrap items-center gap-4 border-t bg-muted/30 px-3 py-2">
               <Button type="button" variant="ghost" size="sm" onClick={() => lines.append(blank())} data-testid="button-add-vline"><Plus />{A.a.addLine}</Button>
-              <span className={`ml-auto rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${balanced ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`} data-testid="status-balance">{balanced ? A.a.balanced : `${A.a.outOfBalance} ${fix4(diff.abs())}`}</span>
+              <span className={`ml-auto rounded border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${balanced ? "text-foreground" : "border-destructive/30 text-destructive"}`} data-testid="status-balance">{balanced ? A.a.balanced : <>{A.a.outOfBalance} <Money v={fix4(diff.abs())} /></>}</span>
               <span className="text-xs text-muted-foreground">{A.f.debit}</span><Money v={fix4(dr)} strong />
               <span className="text-xs text-muted-foreground">{A.f.credit}</span><Money v={fix4(cr)} strong />
             </div>
@@ -207,7 +208,7 @@ function VoucherEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
           {Array.isArray(errs.lines) && <p className="text-xs text-destructive">{errs.lines.find(Boolean)?.debit?.message || errs.lines.find(Boolean)?.credit?.message || L.common.required}</p>}
           <p className="text-xs text-muted-foreground">{A.a.future}</p>
           {error && <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" data-testid="text-form-error">{error}</p>}
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 border-t bg-card px-6 py-3">
             <Button type="button" variant="outline" onClick={onClose}>{L.common.cancel}</Button>
             <Button type="submit" disabled={form.formState.isSubmitting || !balanced} title={balanced ? undefined : A.a.unbalanced} data-testid="button-save-voucher">{form.formState.isSubmitting && <Loader2 className="animate-spin" />}{L.common.save}</Button>
           </DialogFooter>

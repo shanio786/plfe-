@@ -39,6 +39,18 @@ test("Explicit demo and chart seeds are idempotent without duplicate postings",a
   assert.equal(await db.journalEntry.count({where:{companyId:f.first.id,status:"POSTED"}}),20);
   assert.equal(await db.account.count({where:{companyId:f.first.id,counterpartyCompanyId:null}}),chartTemplate("EVENTS").length);
 });
+test("Payment list sorting cannot silently filter out real receipts or outgoing payments",async()=>{
+  const all=await listAccounts(f.owner,f.a,"payments",{direction:"desc"});
+  const expected=await db.payment.count({where:{companyId:f.first.id,deletedAt:null}});
+  assert.ok(expected>0);assert.equal(all.total,expected);
+  const receipts=await listAccounts(f.owner,f.a,"payments",{direction:"asc",paymentDirection:"RECEIPT"});
+  const outgoing=await listAccounts(f.owner,f.a,"payments",{direction:"desc",paymentDirection:"PAYMENT"});
+  assert.equal(receipts.total+outgoing.total,all.total);
+  assert.ok(receipts.rows.every((r:any)=>r.direction==="RECEIPT"));
+  assert.ok(outgoing.rows.every((r:any)=>r.direction==="PAYMENT"));
+  assert.equal((await listAccounts(f.owner,f.a,"payments",{direction:"desc"},true)).total,expected);
+  await assert.rejects(()=>listAccounts(f.owner,f.a,"payments",{paymentDirection:"desc"}),(e:any)=>e.status===400);
+});
 test("Part-paid invoices, split receipts and later advance applications are exact",async()=>{
   const doc=await getAccountRecord(f.owner,f.a,"invoices",f.demo.partPaidInvoiceId);
   assert.equal(doc.total,"100000");assert.equal(doc.paid,"40000.0000");assert.equal(doc.outstanding,"60000.0000");assert.equal(doc.settlementStatus,"PART_PAID");

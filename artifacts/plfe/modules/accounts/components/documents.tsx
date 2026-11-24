@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/modules/core/components/data-table";
 import { useAdmin } from "@/modules/core/components/shared";
 import { date } from "@/modules/core/components/format";
-import { A, Amt, DocStatus, KindTag, Money, PickSelect, Section, SettleTag, col, dec, perm, label, useAll, useDeepId } from "./util";
+import { A, Amt, OutletTag, DocStatus, KindTag, Money, PickSelect, Section, SettleTag, col, dec, perm, label, useAll, useDeepId , numCol } from "./util";
 import { Attachments, DetailDialog, Facts, useRecord } from "./detail";
 import { DocEditor, docDefaults, type DocRes } from "./doc-editor";
 import { EntryLinks, useLifecycle } from "./lifecycle";
@@ -44,15 +44,15 @@ export function DocumentsSection({ res }: { res: DocRes }) {
       </div>
       <DataTable
         company={company} resource={`accounts/${res}`} refreshKey={key} extra={extra} statusOptions={statusOpts} onRowClick={(r) => setId(r.id)}
-        toolbar={<Button size="sm" disabled={!mayCreate} title={mayCreate ? undefined : L.common.denied} onClick={() => setEditor({ editId: null, defaults: docDefaults(res) })} data-testid={`button-new-${res}`}>{mayCreate ? <Plus /> : <Lock />}{res === "invoices" ? A.a.newInvoice : A.a.newBill}</Button>}
+        toolbar={<Button size="sm" disabled={!mayCreate} title={mayCreate ? A.a.newShortcut : L.common.denied} onClick={() => setEditor({ editId: null, defaults: docDefaults(res) })} data-testid={`button-new-${res}`} data-new-doc aria-keyshortcuts="Control+Alt+N">{mayCreate ? <Plus /> : <Lock />}{res === "invoices" ? A.a.newInvoice : A.a.newBill}</Button>}
         columns={[
           col("number", (r) => <span className="font-mono text-xs font-semibold">{r.number ?? <span className="text-muted-foreground">{A.status.DRAFT}</span>}</span>, true),
           col("date", (r) => <span className="font-mono text-xs">{date(r.date)}</span>, true),
           col("kind", (r) => <KindTag k={r.kind} />),
           col("party", (r) => <span className="font-medium">{r.party?.name ?? "—"}</span>),
           col("dueDate", (r) => <span className="font-mono text-xs text-muted-foreground">{date(r.dueDate)}</span>),
-          col("total", (r) => <Amt v={r.total} className="font-semibold" />, true),
-          col("outstanding", (r) => <Amt v={r.outstanding} className={dec(r.outstanding).gt(0) ? "text-primary" : ""} />),
+          numCol("total", (r) => r.total, true, true),
+          numCol("outstanding", (r) => r.outstanding),
           col("settlement", (r) => r.status === "POSTED" && !String(r.kind).includes("NOTE") ? <SettleTag s={r.settlementStatus} /> : null),
           col("status", (r) => <DocStatus s={r.status} />),
         ]}
@@ -94,13 +94,13 @@ function DocDetail({ res, id, version, docType, onClose, onChanged, onEdit, onNo
             <Section title={A.f.lines}>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead><tr className="border-b text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"><th className="px-3 py-2">{A.f.account}</th><th className="px-3 py-2">{L.f.description}</th><th className="px-3 py-2">{A.f.department}</th><th className="px-3 py-2 text-right">{A.f.qty}</th><th className="px-3 py-2 text-right">{A.f.rate}</th><th className="px-3 py-2 text-right">{A.f.amount}</th></tr></thead>
+                  <thead><tr className="border-b text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"><th className="px-3 py-2">{A.f.account}</th><th className="px-3 py-2">{L.f.description}</th><th className="px-3 py-2">{A.f.department}</th><th className="px-3 py-2">{A.f.outlet}</th><th className="px-3 py-2 text-right">{A.f.qty}</th><th className="px-3 py-2 text-right">{A.f.rate}</th><th className="px-3 py-2 text-right">{A.f.amount}</th></tr></thead>
                   <tbody>
                     {(rec.lines ?? []).map((l: RecordData) => (
                       <tr key={l.id} className="border-b last:border-0">
                         <td className="px-3 py-2"><span className="font-mono text-xs text-muted-foreground">{l.account?.code}</span> {l.account?.name}</td>
                         <td className="px-3 py-2">{l.description}</td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">{l.department?.name ?? "—"}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{l.department?.name ?? "—"}</td><td className="px-3 py-2"><OutletTag o={l.outlet} /></td>
                         <td className="px-3 py-2 text-right"><Amt v={l.qty} /></td><td className="px-3 py-2 text-right"><Amt v={l.rate} /></td>
                         <td className="px-3 py-2 text-right"><Amt v={l.amount ?? l.total ?? dec(l.qty).times(dec(l.rate)).toFixed(4)} className="font-semibold" /></td>
                       </tr>

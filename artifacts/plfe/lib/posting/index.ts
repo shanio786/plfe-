@@ -5,7 +5,7 @@ import {AppError} from "@/lib/errors";
 import {money} from "@/lib/money";
 import {nextDocumentNumber} from "@/lib/numbering";
 import type {Actor} from "@/modules/core/model";
-import {authorize,dateOnly,dimensionCheck,ledgerLock,meta,type Tx} from "@/modules/accounts/model";
+import {authorize,dateOnly,dimensionCheck,outletAccountCheck,ledgerLock,meta,type Tx} from "@/modules/accounts/model";
 
 export type PostingLine={accountId:string;debit:string|Prisma.Decimal;credit:string|Prisma.Decimal;partyId?:string|null;departmentId?:string|null;eventId?:string|null;outletId?:string|null;memo?:string|null};
 type PostingInput={id?:string;journalId:string;date:string|Date;narration?:string|null;kind:string;sourceType:string;sourceId:string;reversalOfId?:string|null;lines:PostingLine[]};
@@ -38,6 +38,7 @@ async function validateLines(tx:Tx,companyId:string,lines:PostingLine[],requireB
     if(line.partyId&&!await tx.party.findFirst({where:{id:line.partyId,companyId,active:true,deletedAt:null}}))
       throw new AppError(400,"Select an active party in this company");
     await dimensionCheck(tx,companyId,line);
+    outletAccountCheck(account,line.outletId);
     debit=debit.add(dr);credit=credit.add(cr);
   }
   money(debit);money(credit);

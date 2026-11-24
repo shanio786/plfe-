@@ -4,13 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Decimal from "decimal.js";
 import type { ColumnDef } from "@tanstack/react-table";
-import { CheckCheck, Inbox, RotateCw } from "lucide-react";
+import { CheckCheck, RotateCw } from "lucide-react";
 import type { RecordData } from "@/lib/client";
 import { L } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tag, useAdmin } from "@/modules/core/components/shared";
-import { money } from "@/modules/core/components/format";
+import { amount, money } from "@/modules/core/components/format";
 import { accountList, accountSave } from "../client";
 
 export const A = L.acc;
@@ -20,7 +20,7 @@ export type Col = ColumnDef<RecordData, any>;
 /** Permission prefix per API resource. */
 export const PERM: Record<string, string> = {
   chart: "accounts.chart", parties: "accounts.party", departments: "accounts.department", journals: "accounts.journal", invoices: "accounts.invoice",
-  bills: "accounts.bill", payments: "accounts.payment", entries: "accounts.entry", settings: "accounts.settings",
+  bills: "accounts.bill", outlets: "accounts.outlet", payments: "accounts.payment", entries: "accounts.entry", settings: "accounts.settings",
 };
 export const perm = (resource: string, action: string) => `${PERM[resource]}.${action}`;
 
@@ -32,12 +32,12 @@ export function dec(v: unknown): Decimal {
 export const fix4 = (d: Decimal) => d.toFixed(4);
 export const sum = (vals: unknown[]) => vals.reduce<Decimal>((t, v) => t.plus(dec(v)), new Decimal("0.0000"));
 export function Money({ v, className = "", strong }: { v: unknown; className?: string; strong?: boolean }) {
-  const neg = String(v ?? "").startsWith("-");
-  return <span className={`font-mono tabular-nums ${strong ? "font-semibold" : ""} ${neg ? "text-destructive" : ""} ${className}`}>{money(v)}</span>;
+  const neg = String(v ?? "").trim().startsWith("-") && !dec(v).isZero();
+  return <span className={`inline-block whitespace-nowrap text-right font-mono tabular-nums ${strong ? "font-semibold" : ""} ${neg ? "text-destructive" : ""} ${className}`}>{money(v)}</span>;
 }
 export function Amt({ v, className = "" }: { v: unknown; className?: string }) {
-  if (v === null || v === undefined || v === "" || dec(v).isZero()) return <span className={`font-mono text-xs text-muted-foreground/60 ${className}`}>—</span>;
-  return <span className={`font-mono text-xs tabular-nums ${className}`}>{money(v).replace("PKR ", "")}</span>;
+  if (v === null || v === undefined || v === "") return <span className={`font-mono text-xs text-muted-foreground/60 ${className}`}>—</span>;
+  return <span className={`whitespace-nowrap font-mono text-xs tabular-nums ${className}`}>{money(v)}</span>;
 }
 
 /* ---------- tags ---------- */
@@ -67,9 +67,9 @@ export function ErrorBox({ error, retry }: { error: string; retry?: () => void }
 }
 export function EmptyBox({ title, body, icon }: { title: string; body?: string; icon?: ReactNode }) {
   return (
-    <div className="px-4 py-12 text-center">
-      <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-secondary text-secondary-foreground">{icon ?? <Inbox className="h-5 w-5" />}</div>
-      <p className="font-display font-semibold">{title}</p>
+    <div className="px-4 py-8 text-center">
+      {icon}
+      <p className="font-medium">{title}</p>
       {body && <p className="mt-1 text-sm text-muted-foreground">{body}</p>}
     </div>
   );
@@ -77,7 +77,7 @@ export function EmptyBox({ title, body, icon }: { title: string; body?: string; 
 export function ApprovalNotice({ message, onClose }: { message: string; onClose?: () => void }) {
   const { company } = useAdmin();
   return (
-    <div className="flex items-start gap-3 rounded-md border border-accent/50 bg-accent/10 px-3 py-2.5 text-sm rise" data-testid="notice-approval">
+    <div className="flex items-start gap-3 rounded-md border border-primary/30 px-3 py-2.5 text-sm rise" data-testid="notice-approval">
       <CheckCheck className="mt-0.5 h-4 w-4 shrink-0 text-[hsl(30_80%_28%)]" />
       <div className="min-w-0 flex-1">
         <div className="font-medium">{A.a.approvalSent}</div>
@@ -136,7 +136,8 @@ export function useLookups(open = true) {
   const parties = useAll("parties", open && can(perm("parties", "read")));
   const departments = useAll("departments", open && can(perm("departments", "read")));
   const journals = useAll("journals", open && can(perm("journals", "read")));
-  return { chart, parties, departments, journals };
+  const outlets = useAll("outlets", open && can(perm("outlets", "read")));
+  return { chart, parties, departments, journals, outlets };
 }
 export const label = (r?: RecordData | null) => (r ? `${r.code ?? ""}${r.code ? " · " : ""}${r.name ?? r.number ?? r.id}` : "—");
 
@@ -175,6 +176,11 @@ export const col = (key: string, cell?: (r: RecordData) => ReactNode, sortable =
   id: key, accessorKey: key, header: A.f[key] ?? L.f[key] ?? key, enableSorting: sortable,
   cell: (c) => (cell ? cell(c.row.original) : (c.row.original[key] ?? "—")),
 });
+/** Right-aligned money column; page total shown in the table footer (exact, Decimal). */
+export const numCol = (key: string, get: (r: RecordData) => unknown, sortable = false, strong = false): Col => ({
+  ...col(key, (r) => <Amt v={get(r)} className={strong ? "font-semibold" : ""} />, sortable),
+  meta: { align: "right", sum: (rows: RecordData[]) => fix4(sum(rows.map(get))) },
+});
 export const RESOURCE_OF: Record<string, string> = { INVOICE: "invoices", BILL: "bills", PAYMENT: "payments", ENTRY: "vouchers", PARTY: "parties" };
 
 export function Section({ title, right, children, className = "" }: { title: ReactNode; right?: ReactNode; children: ReactNode; className?: string }) {
@@ -186,5 +192,35 @@ export function Section({ title, right, children, className = "" }: { title: Rea
       </div>
       {children}
     </section>
+  );
+}
+
+/* ---------- outlets ---------- */
+export const OUTLET_TYPES = ["SHOWROOM", "COUNTER", "GATE", "OFFICE"] as const;
+/** Active outlets as select options; keeps a currently chosen inactive outlet visible. */
+export const outletOpts = (rows: RecordData[], keep?: string | null) =>
+  rows.filter((o) => o.active !== false || o.id === keep).map((o) => ({ value: o.id, label: label(o) }));
+export function OutletTag({ o }: { o?: RecordData | null }) {
+  if (!o) return <span className="text-muted-foreground">—</span>;
+  return <span className="whitespace-nowrap text-xs" data-testid={`text-outlet-${o.id}`}><span className="font-mono text-muted-foreground">{o.code}</span> {o.name}</span>;
+}
+/** When an account owned by an outlet is chosen, fill the line's outlet only if none is set.
+ *  Returns a plain-English warning if an explicit, different outlet is already chosen. */
+export function outletFor(accounts: RecordData[], accountId: string | null | undefined, current: string | null | undefined): { set?: string; warn?: string } {
+  const a = accounts.find((x) => x.id === accountId);
+  if (!a?.outletId) return {};
+  if (!current) return { set: a.outletId };
+  if (current !== a.outletId) return { warn: `${a.code} belongs to another outlet. Change the outlet to match, or pick a different account.` };
+  return {};
+}
+
+/** Labelled cell for per-line editors; wraps responsively instead of scrolling sideways. */
+export function LineField({ label: l, className = "", error, children }: { label: string; className?: string; error?: string | false; children: ReactNode }) {
+  return (
+    <div className={`min-w-0 space-y-0.5 ${className}`}>
+      <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{l}</div>
+      {children}
+      {error && <p className="text-[11px] leading-tight text-destructive" role="alert">{error}</p>}
+    </div>
   );
 }

@@ -21,6 +21,19 @@ invented. Historical approval/financial protections below remain mandatory.
 The following earlier scope describes the baseline and is historical wherever
 it conflicts with this override.
 
+### Pre-Tax outlet and interface addition
+
+The latest attachment explicitly adds outlets to Part 1 before Tax. Any company
+may create any number of named outlets (showroom/counter/gate/office). No hard-coded
+showroom names, counts or account children remain in chart templates. Each outlet
+creation atomically allocates its own permanent POS cash and inventory accounts;
+stored outlet links also back the existing document/ledger dimensions. The prior
+fixed two-showroom initialization is superseded; no real outlet names or counts
+are invented. This is not authorization for full retail/POS/inventory workflows.
+Keep the accepted shell, implement the detailed professional accounting interface
+standard in `replit.md`, and inspect every signed-in Accounts screen at desktop and
+tablet widths before Tax. Stop immediately if a required GitHub push fails.
+
 The user approved Phase 1 manual acceptance and authorized Phase 2 Accounts core.
 These instructions override conflicting sequencing in the original plan.
 

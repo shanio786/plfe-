@@ -1,5 +1,105 @@
 # PLFE progress
 
+## Pre-Tax additions — 2026-11-24
+
+The latest attachment adds data-driven outlets and a consistent professional
+accounting interface before Part 2. It supersedes the earlier fixed showroom
+names/count; operators choose actual outlet records for any company. No full POS
+or inventory application is authorized.
+
+### Verified; push pending
+
+- Added company-owned outlet records, permission-checked back-office services and
+  list/detail/export support. Creation atomically allocates linked POS cash and
+  inventory accounts under their parents, with locked next-free-number allocation
+  and safe retries. Database protections retain account numbers, classifications
+  and outlet links. Deactivation disables future use without deleting history;
+  ordinary controlled reversals retain original outlet tags.
+- Removed literal outlet names/counts and cash/inventory children from the chart
+  templates and company bootstrap. All business types have the required parent
+  groups, but outlet-specific accounts exist only after an outlet is created.
+- Added company-composite outlet foreign keys on accounts, journal lines,
+  invoice lines, bill lines and payments. Save/post checks reject cross-company,
+  inactive and mismatched account/outlet references; event tags remain unavailable.
+- Added eight service/database regression tests covering named third outlets,
+  concurrent creation/retries, permanent numbers, permissions/isolation,
+  transactional rollback, posted tag propagation and safe deactivation/reversal.
+  All eight passed, including raw database rejection of cross-company outlet
+  references on every draft document/line source table.
+- Foundation **24/24**, accounting (including outlet, presentation and the new
+  payment-list regression) **35/35**, and provisioning **4/4** checks passed
+  (**63 checks**). The optimized production build passed after the final tablet
+  and payment-filter fixes. No financial protections were relaxed.
+- All fourteen signed-in Accounts screens were viewed at **1440×900** and
+  **1024×768** in disposable books. Invoice/bill/payment/voucher editors fit tablet
+  width; invoice/voucher editors also fit **768×1024** portrait. The first pass
+  found clipped important columns on some tablet lists; the sidebar now becomes
+  a drawer below 1280px, overview stacks, and table padding/names are compact.
+  Focused confirmation passed: no document/table horizontal overflow and no
+  clipped important columns/totals on the affected 1024px lists. The Companies
+  table also fits at 1440px with Active/actions visible.
+- Fixed a real payment-list bug identified from the browser's empty-state
+  observation: the sort `direction` had also been interpreted as the payment
+  direction filter. The list now uses a separate `paymentDirection` filter and
+  has regression coverage for all/receipts/payments/export without hidden records.
+- First signed-in browser steps passed in isolated books: actual seventh-company
+  screen created Retail/December-close company with January–December year, twelve
+  periods, HQ, eleven roles, approvals/settings/numbering and twelve reciprocal
+  children. All seven companies had 84 linked group accounts with no missing
+  pairs or self-links. The screen created WEST/EAST/NORTH outlets and their six
+  correctly linked accounts; keyboard new/save/close and field validation passed.
+  A shared Zod edit-form crash was found, fixed and browser-confirmed. NORTH
+  renamed/deactivated successfully with both account identities/codes retained
+  and no deleted rows. Outlet auto-fill and non-overwrite warnings passed.
+  No second full browser pass was started; targeted fixes reuse the same tester.
+- Browser confirmed the payment fix: **5 payments, Rs 95,000.00** overall;
+  **3 receipts, Rs 75,000.00**; **2 outgoing, Rs 20,000.00**. Ascending/descending
+  amount sorting retained rows/totals, and exports preserve separate sort/filter
+  parameters. No uncaught exception or failed network call remained in this
+  final focused check.
+
+| Accounts screen | Desktop 1440×900 | Tablet 1024×768 |
+| --- | --- | --- |
+| Financial summary | Pass | Pass after stacking fix |
+| Chart of accounts | Pass, sortable | Pass |
+| Parties | Pass | Pass after fit fix |
+| Departments | Pass | Pass |
+| Journals | Pass | Pass |
+| Outlets | Pass | Pass |
+| Invoices / credit notes | Pass | Pass after fit fix |
+| Bills / debit notes | Pass | Pass after fit fix |
+| Receipts / payments | Pass layout; populated data checked in follow-up | Pass with all five real test rows, filtering/sorting |
+| Vouchers | Pass | Pass after fit fix |
+| Trial balance | Pass, balanced | Pass |
+| General ledger | Pass | Pass |
+| Party ledger | Pass, selected test customer | Pass |
+| Posting settings | Pass | Pass |
+
+The screen journey created no financial document in the new company; the
+disposable database retained exactly forty posted fixture entries (twenty in each
+of two test companies), unchanged through the UI checks. Test credentials were
+generated privately, never printed, and their temporary file was deleted.
+Screenshots of the initial inspection are ignored outputs under
+`generated-artifacts/accounts-ui-browser-test/`; final fit screenshots are also
+recorded in the browser test evidence, not committed as application assets.
+
+Non-blocking observations: an edited master returns to its parent detail dialog;
+native date widgets follow the browser locale, while application table/detail
+dates consistently use DD-MM-YYYY and document values remain ISO dates. No new
+print route was claimed. No custom date widget, POS module or full inventory
+workflow was introduced.
+
+No new Owner identity or business opening balance was invented. The secure
+enrollment form is configured and available for the actual operator's private
+choice of credentials. Disposable browser-test identities belong only in isolated
+`_test` databases, never in the application's own books.
+
+The application's own database was checked again after the browser work:
+**0 users, 0 companies, 0 journal entries**. Only the outlet schema migration
+was applied there. The PLFE application and foundation worker are running;
+preview health is `{"status":"ok"}` and enrollment is available/configured.
+The unrelated old API/Canvas scaffold workflows remain outside this work.
+
 ## Five-part fresh-start Accounts revision — 2026-11-24
 
 This supersedes the old missing-original-database blocker below. The operator
@@ -19,8 +119,9 @@ external connection or Odoo import.
   codes. The six names/codes remain initial configuration only.
 - Creating a company through the existing screen's service now transactionally
   creates Head Office, roles/grants, the first year/twelve periods, numbering,
-  approval defaults, posting settings and business-type chart. Retail receives
-  two showrooms. The screen displays the year-END month while submitting the
+  approval defaults, posting settings and business-type chart. The newer outlet
+  addition above supersedes the earlier fixed-showroom initialization.
+  The screen displays the year-END month while submitting the
   following stored year-start month. Type/calendar/currency changes after
   provisioning require controlled conversion rather than silently changing books.
 - Delegated company creators require an explicit grant in their source company
@@ -51,11 +152,11 @@ external connection or Odoo import.
 
 ### Half-done / not yet verified
 
-- The operator has not supplied `BOOTSTRAP_ENROLLMENT_TOKEN`; actual enrollment
-  and initial company creation remain intentionally gated. No identity was
-  invented to bypass this. The actual seventh-company screen and final browser
-  financial journeys remain unverified; service/database tests are not claimed
-  as screen acceptance.
+- `BOOTSTRAP_ENROLLMENT_TOKEN` has now been supplied securely and enrollment is
+  configured. The operator has not yet completed enrollment with their own
+  identity/password. No substitute identity was invented in the actual database.
+  Seventh-company screen acceptance is being checked separately in disposable
+  browser books; the full five-part financial browser acceptance remains pending.
 - Parts 2–5 are **not implemented by this revision yet**. Tax, new payment
   controls, guided opening/imports, intercompany posting/cash counts/reset and
   their requested acceptance coverage remain outstanding.

@@ -1,7 +1,7 @@
 import {Prisma} from "@prisma/client";
 import {AppError} from "@/lib/errors";
 import {money} from "@/lib/money";
-import {dimensionCheck,meta,record,type Tx} from "./model";
+import {dimensionCheck,outletAccountCheck,meta,record,type Tx} from "./model";
 import type {Actor} from "@/modules/core/model";
 export const zero=()=>new Prisma.Decimal("0.0000");
 export function decimal(value:string|Prisma.Decimal) {
@@ -29,6 +29,7 @@ export async function priceLines(tx:Tx,companyId:string,lines:any[],resource:"in
     if(!account||(resource==="invoices"?account.type!=="INCOME":!["EXPENSE","ASSET"].includes(account.type)))
       throw new AppError(400,resource==="invoices"?"Sales lines require an active income account":"Bill lines require an active expense or asset account");
     await dimensionCheck(tx,companyId,line);
+    outletAccountCheck(account,line.outletId);
     const qty=positive(line.qty),rate=decimal(line.rate),lineTotal=decimal(qty.mul(rate).toDecimalPlaces(4));
     total=total.add(lineTotal);
     result.push({companyId,accountId:line.accountId,lineNo:index+1,description:line.description,qty,rate,total:lineTotal,departmentId:line.departmentId,eventId:line.eventId,outletId:line.outletId});

@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {recordFormSchema} from "../form-schema";
 
 export type Field = {
   name: string;
@@ -21,6 +22,7 @@ export type Field = {
   createOnly?: boolean;
   hidden?: boolean;
   wide?: boolean;
+  label?: string;
 };
 
 export function RecordForm({
@@ -37,8 +39,7 @@ export function RecordForm({
   onSubmit: (v: Record<string, any>) => Promise<void>;
 }) {
   const [error, setError] = useState<string | null>(null);
-  let resolverSchema = schema;
-  if (schema && isEdit && typeof schema.partial === "function") resolverSchema = schema.partial({ password: true });
+  const resolverSchema=recordFormSchema(schema,isEdit);
   const form = useForm<Record<string, any>>({ resolver: resolverSchema ? (zodResolver(resolverSchema as any) as any) : undefined, defaultValues: defaults });
   useEffect(() => {
     if (open) { form.reset(defaults); setError(null); }
@@ -53,14 +54,14 @@ export function RecordForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl bg-card">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl bg-card" onOpenAutoFocus={(e) => { e.preventDefault(); const el = (e.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>("form input:not([type=hidden]), form textarea, form button[role=combobox]"); el?.focus(); }}>
         <DialogHeader>
           <DialogTitle className="font-display text-xl">{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
           {visible.map((f) => {
-            const label = L.f[f.name] ?? f.name;
+            const label = f.label ?? L.f[f.name] ?? L.acc.f[f.name] ?? f.name;
             const msg = errors[f.name]?.message as string | undefined;
             const wide = f.wide || f.kind === "textarea" || f.kind === "multi";
             return (
@@ -104,13 +105,14 @@ export function RecordForm({
                     id={f.name}
                     type={f.kind === "money" ? "text" : f.kind}
                     inputMode={f.kind === "money" ? "decimal" : undefined}
-                    className={f.kind === "money" || f.kind === "number" ? "font-mono" : ""}
                     data-testid={`input-${f.name}`}
+                    aria-invalid={!!msg}
+                    className={`${f.kind === "money" || f.kind === "number" ? "text-right font-mono tabular-nums" : ""} ${msg ? "border-destructive" : ""}`}
                     {...form.register(f.name, f.kind === "number" ? { setValueAs: (v) => (v === "" || v === null ? undefined : parseInt(String(v), 10)) } : undefined)}
                   />
                 )}
                 {f.hint && <p className="text-xs text-muted-foreground">{f.hint}</p>}
-                {msg && <p className="text-xs text-destructive">{msg}</p>}
+                {msg && <p className="text-xs text-destructive" role="alert" data-testid={`error-${f.name}`}>{msg}</p>}
               </div>
             );
           })}
@@ -118,7 +120,7 @@ export function RecordForm({
           <DialogFooter className="sm:col-span-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{L.common.cancel}</Button>
             <Button type="submit" disabled={form.formState.isSubmitting} data-testid="button-save">
-              {form.formState.isSubmitting && <Loader2 className="animate-spin" />}{L.common.save}
+              {form.formState.isSubmitting && <Loader2 className="animate-spin" />}{L.common.save}<kbd className="ml-1 hidden rounded border border-current/30 px-1 font-mono text-[10px] opacity-70 sm:inline">Enter</kbd>
             </Button>
           </DialogFooter>
         </form>
