@@ -51,7 +51,7 @@ export function AllocationPicker({ direction, partyId, amount, value, onChange, 
         : open.length === 0 ? <p className="px-3 py-5 text-center text-sm text-muted-foreground">{A.a.noOpenDocs}</p>
         : (
           <table className="w-full text-sm">
-            <thead><tr className="text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground"><th className="px-3 py-1.5">{A.f.number}</th><th className="px-3 py-1.5">{A.f.date}</th><th className="px-3 py-1.5 text-right">{A.f.total}</th><th className="px-3 py-1.5 text-right">{A.f.outstanding}</th><th className="w-44 px-3 py-1.5 text-right">{A.f.allocated}</th></tr></thead>
+            <thead><tr className="text-left text-[10px] uppercase tracking-[0.1em] text-muted-foreground"><th className="px-3 py-1.5">{A.f.number}</th><th className="px-3 py-1.5">{A.f.date}</th><th className="px-3 py-1.5 text-right">{A.f.netTotal}</th><th className="px-3 py-1.5 text-right">{A.f.outstanding}</th><th className="w-44 px-3 py-1.5 text-right">{A.f.allocated}</th></tr></thead>
             <tbody>
               {open.map((d) => {
                 const v = get(d.id);
@@ -60,7 +60,7 @@ export function AllocationPicker({ direction, partyId, amount, value, onChange, 
                   <tr key={d.id} className="border-t">
                     <td className="px-3 py-1.5 font-mono text-xs font-semibold">{d.number}</td>
                     <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground">{date(d.date)}</td>
-                    <td className="px-3 py-1.5 text-right"><Money v={d.total} className="text-xs" /></td>
+                    <td className="px-3 py-1.5 text-right"><Money v={d.netTotal ?? d.total} className="text-xs" /></td>
                     <td className="px-3 py-1.5 text-right"><Money v={fix4(d.available)} className="text-xs" /></td>
                     <td className="px-2 py-1">
                       <div className="flex items-center gap-1">

@@ -1,12 +1,47 @@
 import {audit} from "@/lib/audit";
+import {Prisma} from "@prisma/client";
+import {isDeepStrictEqual} from "node:util";
 import {AppError} from "@/lib/errors";
 import {nextDocumentNumber} from "@/lib/numbering";
 import {openFiscal,postEntry,reverseEntry} from "@/lib/posting";
 import type {Actor} from "@/modules/core/model";
 import {billSchema,invoiceSchema,paymentSchema} from "./schema";
 import {dateOnly,delegate,dimensionCheck,outletAccountCheck,meta,record,resourceConfig,settings,type Tx} from "./model";
-import {applyAllocations,decimal,outstanding,positive,priceLines,zero} from "./balances";
+import {applyAllocations,decimal,outstanding,positive,zero} from "./balances";
 import {accountingToday} from "./time";
+import {calculateTaxDocument,taxLineEvidence} from "./tax-calculation";
+
+function storedLine(line:any) {
+  return {...line,taxSnapshot:line.taxSnapshot??Prisma.DbNull,
+    defaultTaxSnapshot:line.defaultTaxSnapshot??Prisma.DbNull,
+    withholdingSnapshot:line.withholdingSnapshot??Prisma.DbNull};
+}
+export async function previewDocument(tx:Tx,companyId:string,resource:"invoices"|"bills",raw:any) {
+  const data=(resource==="invoices"?invoiceSchema:billSchema).parse(raw);
+  if(raw.id) {
+    const before=await record(tx,resource,companyId,raw.id);
+    if(before.status!=="DRAFT")throw new AppError(409,"Posted tax amounts are historical snapshots, not a preview to reprice");
+  }
+  const party=await tx.party.findFirst({where:{id:data.partyId,companyId,active:true,deletedAt:null}});
+  if(!party)throw new AppError(400,"Select an active party in this company");
+  if(resource==="invoices"?![party.isCustomer,party.isExhibitor,party.isSponsor,party.isStaff].some(Boolean):!party.isSupplier&&!party.isStaff)
+    throw new AppError(400,"Choose a party with the appropriate customer/supplier role");
+  if(data.dueDate<data.date)throw new AppError(400,"Due date cannot precede document date");
+  const priced=await calculateTaxDocument(tx,companyId,resource,data,party,raw.id);
+  return {...priced,lines:priced.lines.map(taxLineEvidence)};
+}
+function assertStoredTax(before:any,priced:any) {
+  const sameMoney=["subtotal","taxTotal","withholdingTotal","total"].every(key=>before[key].eq(priced[key]));
+  const sameEvidence=["taxOverrideReason","partyTaxTreatment","partyTaxReason","partyTaxCertificate"].every(key=>(before[key]??null)===(priced[key]??null));
+  const sameLines=before.lines.length===priced.lines.length&&before.lines.every((line:any,index:number)=>{
+    const next=priced.lines[index];
+    return ["qty","rate","total","taxRate","taxAmount","withholdingRate","withholdingAmount"].every(key=>line[key].eq(next[key]))&&
+      ["accountId","taxId","defaultTaxId","taxSelection","withholdingTaxId","originalLineId","departmentId","outletId","eventId"].every(key=>(line[key]??null)===(next[key]??null))&&
+      ["taxSnapshot","defaultTaxSnapshot","withholdingSnapshot"].every(key=>isDeepStrictEqual(line[key],next[key]));
+  });
+  if(!sameMoney||!sameEvidence||!sameLines)
+    throw new AppError(409,"Tax defaults, versions, party evidence or note availability changed. Review and save the draft again before posting; no historical amount was rewritten");
+}
 
 export async function saveDocument(tx:Tx,actor:Actor,companyId:string,resource:"invoices"|"bills"|"payments",raw:any) {
   const model=delegate(tx,resource),cfg=resourceConfig(resource);
@@ -44,19 +79,21 @@ export async function saveDocument(tx:Tx,actor:Actor,companyId:string,resource:"
       if(original.kind!==(resource==="invoices"?"INVOICE":"BILL")||original.status!=="POSTED"||original.partyId!==values.partyId)
         throw new AppError(400,"Select this party's posted original invoice or bill");
     } else if(values.originalId)throw new AppError(400,"Only credit/debit notes reference an original document");
-    const priced=await priceLines(tx,companyId,lines,resource);
-    const payload={...values,date:dateOnly(values.date),dueDate:dateOnly(values.dueDate),total:priced.total,subtotal:priced.total};
+    const priced=await calculateTaxDocument(tx,companyId,resource,{...values,lines},party,before?.id);
+    const {lines:pricedLines,netTotal,...taxHeader}=priced;
+    const payload={...values,...taxHeader,date:dateOnly(values.date),dueDate:dateOnly(values.dueDate)};
     after=before?await model.update({where:{id:before.id,companyId},data:{...payload,updatedBy:actor.id,version:{increment:1}}}):await model.create({data:{...payload,companyId,...meta(actor)}});
     if(resource==="invoices") {
       if(before)await tx.invoiceLine.deleteMany({where:{companyId,invoiceId:after.id}});
-      await tx.invoiceLine.createMany({data:priced.lines.map(l=>({...l,invoiceId:after.id,...meta(actor)}))});
+      await tx.invoiceLine.createMany({data:pricedLines.map((l:any)=>({...storedLine(l),invoiceId:after.id,...meta(actor)}))});
     } else {
       if(before)await tx.billLine.deleteMany({where:{companyId,billId:after.id}});
-      await tx.billLine.createMany({data:priced.lines.map(l=>({...l,billId:after.id,...meta(actor)}))});
+      await tx.billLine.createMany({data:pricedLines.map((l:any)=>({...storedLine(l),billId:after.id,...meta(actor)}))});
     }
   }
   const complete=await record(tx,resource,companyId,after.id,{include:resource==="payments"?{allocations:{where:{companyId,deletedAt:null}}}:{lines:{where:{companyId,deletedAt:null}}}});
-  await audit(tx,actor,companyId,before?"UPDATE":"CREATE",cfg.table,after.id,before,complete);return complete;
+  await audit(tx,actor,companyId,before?"UPDATE":"CREATE",cfg.table,after.id,before,complete);
+  return resource==="payments"?complete:{...complete,lines:complete.lines.map(taxLineEvidence),netTotal:complete.total.sub(complete.withholdingTotal).toFixed(4)};
 }
 
 export async function postDocument(tx:Tx,actor:Actor,companyId:string,resource:"invoices"|"bills"|"payments",id:string,permission:string) {
@@ -92,17 +129,28 @@ export async function postDocument(tx:Tx,actor:Actor,companyId:string,resource:"
       if(original.status!=="POSTED"||original.partyId!==before.partyId||original.kind!==(invoice?"INVOICE":"BILL"))
         throw new AppError(400,"Original document is no longer available");
       const b=await outstanding(tx,companyId,resource,original);
-      if(before.total.gt(b.outstanding))throw new AppError(400,"Credit/debit note exceeds the original's unallocated outstanding");
+      if(before.total.sub(before.withholdingTotal).gt(b.outstanding))throw new AppError(400,"Credit/debit note exceeds the original's unallocated net outstanding");
     }
-    await priceLines(tx,companyId,before.lines.map((l:any)=>({...l,qty:l.qty.toFixed(4),rate:l.rate.toFixed(4)})),resource);
+    const priced=await calculateTaxDocument(tx,companyId,resource,{...before,date:before.date.toISOString().slice(0,10),
+      lines:before.lines.map((l:any)=>({...l,qty:l.qty.toFixed(4),rate:l.rate.toFixed(4)}))},party,before.id);
+    assertStoredTax(before,priced);
     journalId=invoice?s.salesJournalId:s.purchaseJournalId;
     docType=invoice?(note?"CN":"INV"):(note?"DN":"BILL");
     const controlDebit=invoice!==note;
     // Counterparty lines follow the dimensions of each document line.
-    lines=before.lines.flatMap((l:any)=>[
-      {accountId:invoice?s.receivableAccountId:s.payableAccountId,partyId:before.partyId,debit:controlDebit?l.total:zero(),credit:controlDebit?zero():l.total,departmentId:l.departmentId,eventId:l.eventId,outletId:l.outletId,memo:l.description},
-      {accountId:l.accountId,debit:controlDebit?zero():l.total,credit:controlDebit?l.total:zero(),departmentId:l.departmentId,eventId:l.eventId,outletId:l.outletId,memo:l.description}
-    ]);
+    lines=before.lines.flatMap((l:any)=>{
+      const tags={departmentId:l.departmentId,eventId:l.eventId,outletId:l.outletId,memo:l.description};
+      const net=l.total.add(l.taxAmount).sub(l.withholdingAmount);
+      const rows=[
+        {accountId:invoice?s.receivableAccountId:s.payableAccountId,partyId:before.partyId,debit:controlDebit?net:zero(),credit:controlDebit?zero():net,...tags},
+        {accountId:l.accountId,debit:controlDebit?zero():l.total,credit:controlDebit?l.total:zero(),...tags}
+      ];
+      if(l.taxAmount.gt("0"))rows.push({accountId:invoice?l.taxSnapshot.outputAccountId:l.taxSnapshot.inputAccountId,
+        debit:controlDebit?zero():l.taxAmount,credit:controlDebit?l.taxAmount:zero(),...tags});
+      if(l.withholdingAmount.gt("0"))rows.push({accountId:invoice?l.withholdingSnapshot.outputAccountId:l.withholdingSnapshot.inputAccountId,
+        debit:controlDebit?l.withholdingAmount:zero(),credit:controlDebit?zero():l.withholdingAmount,...tags});
+      return rows;
+    });
     // Zero-priced descriptive rows have no ledger effect.
     lines=lines.filter(l=>decimal(l.debit).gt("0")||decimal(l.credit).gt("0"));
   }

@@ -10,6 +10,11 @@ import {accountingToday} from "./time";
 async function checkAccount(tx:Tx,companyId:string,data:any,id?:string) {
   if((data.isCash||data.isBank)&&(data.type!=="ASSET"||data.isGroup)||data.isCash&&data.isBank)
     throw new AppError(400,"Cash/bank accounts must be separate non-group asset accounts");
+  if(data.defaultTaxId) {
+    const tax=await record(tx,"taxes",companyId,data.defaultTaxId);
+    if(tax.kind==="WITHHOLDING"||data.isGroup||data.isCash||data.isBank||!["ASSET","INCOME","EXPENSE"].includes(data.type))
+      throw new AppError(400,"Default sales/input tax belongs to an income, expense or non-cash asset posting account; withholding is selected separately");
+  }
   const seen=new Set(id?[id]:[]);
   let parentId=data.parentId;
   while(parentId) {
@@ -24,9 +29,16 @@ async function checkAccount(tx:Tx,companyId:string,data:any,id?:string) {
     if(["type","isGroup","isCash","isBank"].some(k=>before[k]!==data[k]))
       throw new AppError(409,"A used account's classification cannot change");
   }
+  if(id&&await tx.tax.findFirst({where:{companyId,OR:[{outputAccountId:id},{inputAccountId:id}]}})) {
+    const before=await record(tx,"chart",companyId,id);
+    if(["type","isGroup","isCash","isBank"].some(key=>before[key]!==data[key]))
+      throw new AppError(409,"An account referenced by a tax version must retain its financial classification");
+  }
 }
 async function protectReferences(tx:Tx,companyId:string,resource:string,id:string,archiving:boolean) {
   if(resource==="chart") {
+    if(await tx.tax.findFirst({where:{companyId,...(archiving?{}:{active:true}),OR:[{outputAccountId:id},{inputAccountId:id}]}}))
+      throw new AppError(409,archiving?"Tax version accounts are retained and cannot be archived":"Deactivate or remap the active tax version before disabling this account");
     if(await tx.account.findFirst({where:{companyId,parentId:id,deletedAt:null}}))throw new AppError(409,"Move child accounts before disabling or archiving this group");
     if(await tx.accountingSettings.findFirst({where:{companyId,OR:[{receivableAccountId:id},{payableAccountId:id},{openingEquityAccountId:id}]}}))
       throw new AppError(409,"Change posting settings before disabling this control account");
@@ -46,8 +58,12 @@ async function protectReferences(tx:Tx,companyId:string,resource:string,id:strin
 export async function saveMaster(tx:Tx,actor:Actor,companyId:string,resource:string,raw:any) {
   const cfg=resourceConfig(resource),model=delegate(tx,resource);
   const before=raw.id?await record(tx,resource,companyId,raw.id):null;
-  if(resource==="chart"&&before?.outletId)
-    throw new AppError(409,"This account is managed by its outlet; edit or deactivate the outlet instead");
+  if(resource==="chart"&&before?.outletId) {
+    if(raw.operation==="delete")throw new AppError(409,"Outlet accounts are permanent and cannot be archived");
+    const proposed=accountSchema.parse(raw);
+    if(["code","name","type","parentId","isGroup","isCash","isBank","active"].some(key=>(before[key]??null)!==((proposed as any)[key]??null)))
+      throw new AppError(409,"This account is managed by its outlet; only its default tax can be changed here. Edit or deactivate the outlet to change its name or active status");
+  }
   if(raw.operation==="delete") {
     if(!before)throw new AppError(404,"Record not found");
     await protectReferences(tx,companyId,resource,before.id,true);
@@ -55,9 +71,17 @@ export async function saveMaster(tx:Tx,actor:Actor,companyId:string,resource:str
     await audit(tx,actor,companyId,"CANCEL",cfg.table,before.id,before,after);return after;
   }
   let data:any;
-  if(resource==="chart") {data=accountSchema.parse(raw);await checkAccount(tx,companyId,data,before?.id);}
+  if(resource==="chart") {
+    data=accountSchema.parse(raw);
+    if(before&&raw.defaultTaxId===undefined)data.defaultTaxId=before.defaultTaxId;
+    await checkAccount(tx,companyId,data,before?.id);
+  }
   else if(resource==="parties") {
     data=partySchema.parse(raw);
+    if(before)for(const key of ["strn","taxTreatment","taxExemptionReason","taxCertificateRef"])
+      if(raw[key]===undefined)data[key]=before[key];
+    if(data.taxTreatment!=="STANDARD"&&((data.taxExemptionReason??"").trim().length<10||!(data.taxCertificateRef??"").trim()))
+      throw new AppError(400,"Exempt and zero-rated parties need a written reason of at least ten characters and a certificate reference");
     if(![data.isCustomer,data.isSupplier,data.isExhibitor,data.isSponsor,data.isStaff].some(Boolean))throw new AppError(400,"Choose at least one party kind");
     if(before) {
       if(raw.openingBalance!==undefined&&!before.openingBalance.eq(decimal(data.openingBalance))||raw.openingSide!==undefined&&before.openingSide!==data.openingSide)
@@ -90,6 +114,8 @@ export async function saveSettings(tx:Tx,actor:Actor,companyId:string,raw:any) {
   for(const [key,type] of [["receivableAccountId","ASSET"],["payableAccountId","LIABILITY"],["openingEquityAccountId","EQUITY"]]) {
     const a=await record(tx,"chart",companyId,(data as any)[key!]);
     if(a.type!==type||a.isGroup||!a.active||a.isBank||a.isCash)throw new AppError(400,"Control account mappings require active non-cash posting accounts of the correct type");
+    if(await tx.tax.findFirst({where:{companyId,OR:[{outputAccountId:a.id},{inputAccountId:a.id}]}}))
+      throw new AppError(400,"A tax-version account cannot also become a receivable, payable or opening control account");
   }
   for(const [key,type] of [["salesJournalId","SALES"],["purchaseJournalId","PURCHASE"],["generalJournalId","GENERAL"],["cashJournalId","CASH"],["bankJournalId","BANK"]]) {
     const j=await record(tx,"journals",companyId,(data as any)[key!]);

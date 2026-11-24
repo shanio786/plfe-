@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/modules/core/components/data-table";
 import { useAdmin } from "@/modules/core/components/shared";
 import { date } from "@/modules/core/components/format";
-import { A, Amt, OutletTag, DocStatus, KindTag, Money, PickSelect, Section, SettleTag, col, dec, perm, label, useAll, useDeepId , numCol } from "./util";
+import { A, Amt, OutletTag, SelectionNote, SnapEvidence, snapOf, DocStatus, KindTag, Money, PickSelect, Section, SettleTag, col, dec, perm, label, useAll, useDeepId , numCol } from "./util";
 import { Attachments, DetailDialog, Facts, useRecord } from "./detail";
 import { DocEditor, docDefaults, type DocRes } from "./doc-editor";
 import { EntryLinks, useLifecycle } from "./lifecycle";
@@ -51,7 +51,8 @@ export function DocumentsSection({ res }: { res: DocRes }) {
           col("kind", (r) => <KindTag k={r.kind} />),
           col("party", (r) => <span className="font-medium">{r.party?.name ?? "—"}</span>),
           col("dueDate", (r) => <span className="font-mono text-xs text-muted-foreground">{date(r.dueDate)}</span>),
-          numCol("total", (r) => r.total, true, true),
+          numCol("total", (r) => r.total, true),
+          { ...numCol("netTotal", (r) => r.netTotal ?? r.total, false, true), header: A.f.netTotal },
           numCol("outstanding", (r) => r.outstanding),
           col("settlement", (r) => r.status === "POSTED" && !String(r.kind).includes("NOTE") ? <SettleTag s={r.settlementStatus} /> : null),
           col("status", (r) => <DocStatus s={r.status} />),
@@ -87,14 +88,17 @@ function DocDetail({ res, id, version, docType, onClose, onChanged, onEdit, onNo
               [A.f.date, <span key="d" className="font-mono">{date(rec.date)}</span>], [A.f.dueDate, <span key="dd" className="font-mono">{date(rec.dueDate)}</span>],
               [A.f.party, rec.party ? <Link key="p" href={`/${company}/accounts/party-ledger?partyId=${rec.partyId}`} className="text-primary hover:underline">{label(rec.party)}</Link> : "—"],
               [A.f.original, rec.originalId ? <Link key="o" href={`/${company}/accounts/${res}?id=${rec.originalId}`} className="font-mono text-primary hover:underline">{rec.original?.number ?? rec.originalId.slice(0, 8)}</Link> : "—"],
-              [A.f.total, <Money key="t" v={rec.total} strong />], [A.f.paid, <Money key="pd" v={rec.paid} />], [A.f.outstanding, <Money key="o2" v={rec.outstanding} strong className="text-primary" />],
+              [A.t.subtotal, <Money key="st" v={rec.subtotal} />], [A.t.taxTotal, <Money key="tt" v={rec.taxTotal} />], [A.t.gross, <Money key="t" v={rec.total} />],
+              [A.t.whtTotal, <Money key="wt" v={rec.withholdingTotal} />], [res === "invoices" ? A.t.netReceivable : A.t.netPayable, <Money key="nt" v={rec.netTotal ?? rec.total} strong />], [A.f.paid, <Money key="pd" v={rec.paid} />], [A.f.outstanding, <Money key="o2" v={rec.outstanding} strong className="text-primary" />],
               [A.f.narration, rec.narration || "—"],
+              ...(rec.taxOverrideReason ? [[A.t.overrideEvidence, rec.taxOverrideReason] as [string, string]] : []),
+              ...(rec.partyTaxTreatment && rec.partyTaxTreatment !== "STANDARD" ? [[A.t.partyTreatment, `${A.taxTreatments[rec.partyTaxTreatment] ?? rec.partyTaxTreatment}${rec.partyTaxReason ? ` · ${rec.partyTaxReason}` : ""}${rec.partyTaxCertificate ? ` · ${A.t.certificate} ${rec.partyTaxCertificate}` : ""}`] as [string, string]] : []),
             ]} />
             <EntryLinks rec={rec} />
             <Section title={A.f.lines}>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead><tr className="border-b text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"><th className="px-3 py-2">{A.f.account}</th><th className="px-3 py-2">{L.f.description}</th><th className="px-3 py-2">{A.f.department}</th><th className="px-3 py-2">{A.f.outlet}</th><th className="px-3 py-2 text-right">{A.f.qty}</th><th className="px-3 py-2 text-right">{A.f.rate}</th><th className="px-3 py-2 text-right">{A.f.amount}</th></tr></thead>
+                  <thead><tr className="border-b text-left text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground"><th className="px-3 py-2">{A.f.account}</th><th className="px-3 py-2">{L.f.description}</th><th className="px-3 py-2">{A.f.department}</th><th className="px-3 py-2">{A.f.outlet}</th><th className="px-3 py-2 text-right">{A.f.qty}</th><th className="px-3 py-2 text-right">{A.f.rate}</th><th className="px-3 py-2 text-right">{A.t.subtotal}</th><th className="px-3 py-2 text-right">{A.t.salesTax}</th><th className="px-3 py-2 text-right">{A.t.withholding}</th></tr></thead>
                   <tbody>
                     {(rec.lines ?? []).map((l: RecordData) => (
                       <tr key={l.id} className="border-b last:border-0">
@@ -103,6 +107,8 @@ function DocDetail({ res, id, version, docType, onClose, onChanged, onEdit, onNo
                         <td className="px-3 py-2 text-xs text-muted-foreground">{l.department?.name ?? "—"}</td><td className="px-3 py-2"><OutletTag o={l.outlet} /></td>
                         <td className="px-3 py-2 text-right"><Amt v={l.qty} /></td><td className="px-3 py-2 text-right"><Amt v={l.rate} /></td>
                         <td className="px-3 py-2 text-right"><Amt v={l.amount ?? l.total ?? dec(l.qty).times(dec(l.rate)).toFixed(4)} className="font-semibold" /></td>
+                        <td className="px-3 py-2 text-right" data-testid={`text-line-tax-${l.id}`}><SnapEvidence snap={snapOf(l, "tax")} amount={l.taxAmount} /><SelectionNote l={l} /></td>
+                        <td className="px-3 py-2 text-right"><SnapEvidence snap={snapOf(l, "withholding")} amount={l.withholdingAmount} /></td>
                       </tr>
                     ))}
                   </tbody>

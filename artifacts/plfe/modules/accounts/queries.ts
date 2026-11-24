@@ -1,16 +1,19 @@
 import {db} from "@/lib/db";
+import {Prisma} from "@prisma/client";
 import {companyScope} from "@/lib/permissions";
 import {AppError} from "@/lib/errors";
 import {redact} from "@/lib/audit";
 import {listSchema} from "@/modules/core/schema";
 import type {Actor} from "@/modules/core/model";
 import {dateOnly,delegate,record,resourceConfig,type Tx} from "./model";
-import {outstanding,zero} from "./balances";
+import {netDocumentTotal,outstanding,zero} from "./balances";
+import {taxLineEvidence} from "./tax-calculation";
 
 const docResources=["invoices","bills","payments","entries"];
 function includes(resource:string,detail=false,companyId?:string):any {
   const where={companyId,deletedAt:null};
-  if(resource==="chart")return {parent:true,outlet:true};
+  if(resource==="chart")return {parent:true,outlet:true,defaultTax:true};
+  if(resource==="taxes")return {outputAccount:true,inputAccount:true};
   if(resource==="outlets")return {accounts:{include:{parent:true},orderBy:{code:"asc"}}};
   if(resource==="invoices"||resource==="bills")return {party:true,...(detail?{original:true,entry:true,reversalEntry:true,lines:{where,orderBy:{lineNo:"asc"},include:{account:true,department:true,outlet:true}},allocations:{where:{...where,payment:{companyId,status:"POSTED",deletedAt:null}},include:{payment:true}}}:{})};
   if(resource==="payments")return {party:true,settlementAccount:true,department:true,outlet:true,...(detail?{entry:true,reversalEntry:true,allocations:{where,include:{invoice:true,bill:true}}}:{})};
@@ -20,19 +23,26 @@ function includes(resource:string,detail=false,companyId?:string):any {
 }
 async function enrich(tx:Tx,companyId:string,resource:string,rows:any[]) {
   const ids=rows.map(r=>r.id);if(!ids.length)return rows;
+  if(resource==="taxes") {
+    const usage=await tx.$queryRaw<{id:string;used:boolean}[]>`SELECT id,plfe_tax_version_used(company_id,id) AS used
+      FROM taxes WHERE company_id=${companyId}::uuid AND id IN (${Prisma.join(ids.map(id=>Prisma.sql`${id}::uuid`))})`;
+    return rows.map(r=>({...r,used:usage.find(u=>u.id===r.id)?.used===true,
+      previousVersion:r.version>1?{code:r.code,version:r.version-1}:null}));
+  }
   if(resource==="invoices"||resource==="bills") {
     const invoice=resource==="invoices";
     const allocationWhere={companyId,deletedAt:null,payment:{companyId,status:"POSTED",deletedAt:null}};
     const allocations:any[]=await (tx.paymentAllocation as any).groupBy({
       by:[invoice?"invoiceId":"billId"],where:{...allocationWhere,...(invoice?{invoiceId:{in:ids}}:{billId:{in:ids}})},_sum:{amount:true}
     });
-    const notes:any[]=await delegate(tx,resource).groupBy({by:["originalId"],where:{companyId,originalId:{in:ids},status:"POSTED",deletedAt:null},_sum:{total:true}});
+    const notes:any[]=await delegate(tx,resource).groupBy({by:["originalId"],where:{companyId,originalId:{in:ids},status:"POSTED",deletedAt:null},_sum:{total:true,withholdingTotal:true}});
     return rows.map(r=>{
       const paid=allocations.find(a=>a[invoice?"invoiceId":"billId"]===r.id)?._sum.amount??zero();
-      const credited=notes.find(n=>n.originalId===r.id)?._sum.total??zero();
+      const sums=notes.find(n=>n.originalId===r.id)?._sum;
+      const credited=(sums?.total??zero()).sub(sums?.withholdingTotal??zero()),netTotal=netDocumentTotal(r);
       const note=invoice?r.kind==="CREDIT_NOTE":r.kind==="DEBIT_NOTE";
-      const balance=r.status==="CANCELLED"||note&&r.status==="POSTED"?zero():r.total.sub(paid).sub(credited);
-      return {...r,paid:paid.toFixed(4),credited:credited.toFixed(4),outstanding:balance.toFixed(4),settlementStatus:r.status==="CANCELLED"?"CANCELLED":r.status==="DRAFT"?"DRAFT":note?"APPLIED":balance.eq("0")?"PAID":paid.add(credited).gt("0")?"PART_PAID":"UNPAID"};
+      const balance=r.status==="CANCELLED"||note&&r.status==="POSTED"?zero():netTotal.sub(paid).sub(credited);
+      return {...r,...(r.lines?{lines:r.lines.map(taxLineEvidence)}:{}),netTotal:netTotal.toFixed(4),paid:paid.toFixed(4),credited:credited.toFixed(4),outstanding:balance.toFixed(4),settlementStatus:r.status==="CANCELLED"?"CANCELLED":r.status==="DRAFT"?"DRAFT":note?"APPLIED":balance.eq("0")?"PAID":paid.add(credited).gt("0")?"PART_PAID":"UNPAID"};
     });
   }
   if(resource==="entries") {
@@ -67,7 +77,11 @@ export async function listAccounts(actor:Actor,code:string,resource:string,raw:R
       if(raw.from||raw.to)where.date={...(raw.from?{gte:dateOnly(raw.from)}:{}),...(raw.to?{lte:dateOnly(raw.to)}:{})};
     } else if(["active","true","inactive","false"].includes((p.status??"").toLowerCase()))where.active=["active","true"].includes((p.status??"").toLowerCase());
     if(resource==="chart"&&raw.parentId)where.parentId=raw.parentId;
-    const allowed=["id","createdAt","updatedAt",...(docResources.includes(resource)?["number","date","status",...(resource==="payments"?["amount"]:resource==="entries"?["kind"]:["total","dueDate","kind"])]:["code","name",...(resource==="settings"?[]:["active"]),...(resource==="outlets"?["type","address"]:[])])];
+    if(resource==="taxes"&&raw.kind) {
+      if(!["FEDERAL_SALES","PROVINCIAL_SERVICES","WITHHOLDING"].includes(raw.kind))throw new AppError(400,"Choose a supported tax kind");
+      where.kind=raw.kind;
+    }
+    const allowed=["id","createdAt","updatedAt",...(docResources.includes(resource)?["number","date","status",...(resource==="payments"?["amount"]:resource==="entries"?["kind"]:["total","dueDate","kind"])]:["code","name",...(resource==="settings"?[]:["active"]),...(resource==="outlets"?["type","address"]:[]),...(resource==="taxes"?["kind","authority","percentage","effectiveFrom","version"]:[])])];
     const sort=allowed.includes(p.sort)?p.sort:"createdAt";
     const model=delegate(tx,resource),total=await model.count({where});
     if(exporting&&total>100000)throw new AppError(400,"Narrow the export to at most 100,000 records");

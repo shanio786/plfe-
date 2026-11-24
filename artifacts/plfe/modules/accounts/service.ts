@@ -10,10 +10,11 @@ import {allocationSchema} from "./schema";
 import {accountConfig,authorize,delegate,ledgerLock,record,resourceConfig,type Tx} from "./model";
 import {applyAllocations,zero} from "./balances";
 import {saveMaster,saveSettings} from "./masters";
-import {cancelDocument,postDocument,saveDocument} from "./documents";
+import {cancelDocument,postDocument,previewDocument,saveDocument} from "./documents";
 import {postVoucher,saveVoucher} from "./vouchers";
 import {accountingToday} from "./time";
 import {saveOutlet} from "./outlets";
+import {saveTax} from "./tax-master";
 
 async function approvalRule(tx:Tx,companyId:string,resource:string,operation:string,target:any) {
   let amount=target.amount;
@@ -54,14 +55,19 @@ async function execute(tx:Tx,actor:Actor,companyId:string,resource:string,operat
 
 /** Sole public Accounts write boundary: permission, one transaction, audit. */
 export async function saveAccountRecord(actor:Actor,companyCode:string,resource:string,input:unknown) {
-  const raw=z.object({id:z.string().uuid().optional(),operation:z.enum(["save","delete","post","cancel","allocate"]).default("save")}).passthrough().parse(input);
+  const raw=z.object({id:z.string().uuid().optional(),operation:z.enum(["save","delete","post","cancel","allocate","preview"]).default("save")}).passthrough().parse(input);
   const cfg=resourceConfig(resource);
-  if(raw.operation!=="save"&&!raw.id)throw new AppError(400,"A document id is required");
-  const action=resource==="settings"?"update":raw.operation==="save"?(raw.id?"update":"create"):raw.operation;
+  if(!["save","preview"].includes(raw.operation)&&!raw.id)throw new AppError(400,"A document id is required");
+  const action=resource==="settings"?"update":["save","preview"].includes(raw.operation)?(raw.id?"update":"create"):raw.operation;
   const permission=`accounts.${cfg.object}.${action}`;
   return db.$transaction(async tx=>{
     const company=await companyScope(tx,actor,companyCode,permission),companyId=company.id;
     await ledgerLock(tx,companyId);
+    if(raw.operation==="preview") {
+      if(resource!=="invoices"&&resource!=="bills")throw new AppError(400,"Tax preview is available for invoice/bill drafts only");
+      return previewDocument(tx,companyId,resource,raw);
+    }
+    if(resource==="taxes")return saveTax(tx,actor,companyId,raw);
     if(resource==="outlets")return saveOutlet(tx,actor,companyId,raw);
     if(["post","cancel"].includes(raw.operation)) {
       if(!raw.id)throw new AppError(400,"Save a draft first");

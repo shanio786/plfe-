@@ -20,7 +20,7 @@ export type Col = ColumnDef<RecordData, any>;
 /** Permission prefix per API resource. */
 export const PERM: Record<string, string> = {
   chart: "accounts.chart", parties: "accounts.party", departments: "accounts.department", journals: "accounts.journal", invoices: "accounts.invoice",
-  bills: "accounts.bill", outlets: "accounts.outlet", payments: "accounts.payment", entries: "accounts.entry", settings: "accounts.settings",
+  bills: "accounts.bill", outlets: "accounts.outlet", taxes: "accounts.tax", payments: "accounts.payment", entries: "accounts.entry", settings: "accounts.settings",
 };
 export const perm = (resource: string, action: string) => `${PERM[resource]}.${action}`;
 
@@ -221,6 +221,57 @@ export function LineField({ label: l, className = "", error, children }: { label
       <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{l}</div>
       {children}
       {error && <p className="text-[11px] leading-tight text-destructive" role="alert">{error}</p>}
+    </div>
+  );
+}
+
+/* ---------- taxes ---------- */
+export const PROVINCE_OF: Record<string, string> = { PRA: "Punjab", SRB: "Sindh", KPRA: "Khyber Pakhtunkhwa", BRA: "Balochistan" };
+export const pct = (v: unknown) => { const s = String(v ?? ""); return s ? `${s.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "")}%` : "—"; };
+export const taxLabel = (t?: RecordData | null) => t ? `${t.code} v${t.version ?? 1} · ${pct(t.percentage)} · ${t.authority}` : "—";
+/** Tax versions in force on a day for a side of the book. Dates compared as ISO strings. */
+export function effectiveTaxes(rows: RecordData[], day: string, side: "SALES" | "PURCHASES", withholding: boolean) {
+  const d = String(day || "").slice(0, 10);
+  return rows.filter((t) => t.active !== false && (t.kind === "WITHHOLDING") === withholding
+    && (t.applicability === "BOTH" || t.applicability === side)
+    && (!d || (String(t.effectiveFrom ?? "").slice(0, 10) <= d && (!t.effectiveTo || String(t.effectiveTo).slice(0, 10) >= d))));
+}
+export function TaxEvidence({ code, version, authority, rate, amount: amt }: { code?: string | null; version?: unknown; authority?: string | null; rate?: unknown; amount?: unknown }) {
+  if (!code && (amt === undefined || amt === null)) return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="whitespace-nowrap text-xs">
+      {code && <span className="font-mono text-muted-foreground">{code}{version ? ` v${version}` : ""}{authority ? ` ${authority}` : ""} </span>}
+      {rate !== undefined && rate !== null && <span className="text-muted-foreground">{pct(rate)} </span>}
+      <Amt v={amt} />
+    </span>
+  );
+}
+
+/* ---- Tax snapshots: evidence always comes from the line's frozen snapshot, never the live tax master. ---- */
+type Snap = { code?: string; version?: unknown; authority?: string; percentage?: unknown } | null | undefined;
+export const snapOf = (l: RecordData | undefined, kind: "tax" | "withholding" | "default"): Snap =>
+  !l ? null : kind === "tax" ? l.taxSnapshot ?? l.tax : kind === "withholding" ? l.withholdingSnapshot ?? l.withholdingTax : l.defaultTaxSnapshot ?? l.defaultTax;
+export function SnapEvidence({ snap, amount: amt }: { snap: Snap; amount?: unknown }) {
+  return <TaxEvidence code={snap?.code} version={snap?.version} authority={snap?.authority} rate={snap?.percentage} amount={amt} />;
+}
+/** True when the line charges less than its account default (cleared, or a selected lower rate). Needs a written reason. */
+export function belowDefault(l: RecordData | undefined): boolean {
+  const d = snapOf(l, "default");
+  if (!l || !d || d.percentage === undefined || d.percentage === null || l.originalLineId) return false;
+  if (l.taxSelection === "CLEARED") return dec(d.percentage as string).gt(0);
+  if (l.taxSelection !== "SELECTED") return false;
+  const t = snapOf(l, "tax");
+  return !!t && t.percentage !== undefined && t.percentage !== null && dec(t.percentage as string).lt(dec(d.percentage as string));
+}
+/** Selection marker plus the account default it departed from, so a reviewer can see why less was charged. */
+export function SelectionNote({ l }: { l: RecordData | undefined }) {
+  if (!l?.taxSelection || l.taxSelection === "AUTO") return null;
+  const d = snapOf(l, "default");
+  return (
+    <div className="whitespace-nowrap text-[10px] text-muted-foreground">
+      <span className="uppercase">{l.taxSelection === "CLEARED" ? A.t.cleared : A.t.selection}</span>
+      {d?.code ? <> · {A.t.defaultWas} <span className="font-mono">{d.code}{d.version ? ` v${String(d.version)}` : ""} {d.authority ?? ""} {d.percentage !== undefined && d.percentage !== null ? pct(d.percentage) : ""}</span></> : <> · {A.t.defaultWas} —</>}
+      {belowDefault(l) && <span className="ml-1 text-destructive">{A.t.belowDefault}</span>}
     </div>
   );
 }

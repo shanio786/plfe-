@@ -4,6 +4,11 @@ import {money} from "@/lib/money";
 import {dimensionCheck,outletAccountCheck,meta,record,type Tx} from "./model";
 import type {Actor} from "@/modules/core/model";
 export const zero=()=>new Prisma.Decimal("0.0000");
+export function netDocumentTotal(doc:any) {
+  if(doc.withholdingTotal===undefined||doc.withholdingTotal===null)
+    throw new AppError(500,"Document withholding total was not loaded; its settlement balance cannot be assumed");
+  return doc.total.sub(doc.withholdingTotal);
+}
 export function decimal(value:string|Prisma.Decimal) {
   try{return money(value);}catch{throw new AppError(400,"Amount exceeds numeric(18,4) or has more than four decimal places");}
 }
@@ -14,12 +19,12 @@ export async function outstanding(tx:Tx,companyId:string,resource:"invoices"|"bi
   const invoice=resource==="invoices";
   const allocations=await tx.paymentAllocation.aggregate({where:{companyId,deletedAt:null,...(invoice?{invoiceId:doc.id}:{billId:doc.id}),payment:{companyId,status:"POSTED",deletedAt:null,...(excludePaymentId?{id:{not:excludePaymentId}}:{})}},_sum:{amount:true}});
   const notes=invoice
-    ? await tx.invoice.aggregate({where:{companyId,originalId:doc.id,kind:"CREDIT_NOTE",status:"POSTED",deletedAt:null},_sum:{total:true}})
-    : await tx.bill.aggregate({where:{companyId,originalId:doc.id,kind:"DEBIT_NOTE",status:"POSTED",deletedAt:null},_sum:{total:true}});
-  const paid=allocations._sum.amount??zero(),credited=notes._sum.total??zero();
+    ? await tx.invoice.aggregate({where:{companyId,originalId:doc.id,kind:"CREDIT_NOTE",status:"POSTED",deletedAt:null},_sum:{total:true,withholdingTotal:true}})
+    : await tx.bill.aggregate({where:{companyId,originalId:doc.id,kind:"DEBIT_NOTE",status:"POSTED",deletedAt:null},_sum:{total:true,withholdingTotal:true}});
+  const paid=allocations._sum.amount??zero(),credited=(notes._sum.total??zero()).sub(notes._sum.withholdingTotal??zero()),netTotal=netDocumentTotal(doc);
   const note=invoice?doc.kind==="CREDIT_NOTE":doc.kind==="DEBIT_NOTE";
-  const balance=doc.status==="CANCELLED"||note&&doc.status==="POSTED"?zero():doc.total.sub(paid).sub(credited);
-  return {paid:paid.toFixed(4),credited:credited.toFixed(4),outstanding:balance.toFixed(4),settlementStatus:doc.status==="CANCELLED"?"CANCELLED":doc.status==="DRAFT"?"DRAFT":note?"APPLIED":balance.eq("0")?"PAID":paid.add(credited).gt("0")?"PART_PAID":"UNPAID"};
+  const balance=doc.status==="CANCELLED"||note&&doc.status==="POSTED"?zero():netTotal.sub(paid).sub(credited);
+  return {netTotal:netTotal.toFixed(4),paid:paid.toFixed(4),credited:credited.toFixed(4),outstanding:balance.toFixed(4),settlementStatus:doc.status==="CANCELLED"?"CANCELLED":doc.status==="DRAFT"?"DRAFT":note?"APPLIED":balance.eq("0")?"PAID":paid.add(credited).gt("0")?"PART_PAID":"UNPAID"};
 }
 export async function priceLines(tx:Tx,companyId:string,lines:any[],resource:"invoices"|"bills") {
   let total=zero();

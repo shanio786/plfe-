@@ -7,6 +7,7 @@ import {permissionCodes} from "../../lib/role-templates";
 import {provisionCompany,saveRecord} from "../../modules/core/service";
 import {seedDemoBooks} from "../../modules/accounts/demo";
 import {accountingToday} from "../../modules/accounts/time";
+import {setupTestTax} from "./test-tax";
 
 export async function accountsFixture() {
   assert.ok(new URL(config.databaseUrl||"").pathname.endsWith("_test"),"Refusing writes outside a dedicated _test database");
@@ -24,6 +25,7 @@ export async function accountsFixture() {
     const role=await db.role.findFirstOrThrow({where:{companyId:first.id,name,deletedAt:null}});
     await saveRecord(owner,a,"memberships",{userId:u.id,roleId:role.id});
   }
+  await setupTestTax(owner,a);await setupTestTax(owner,b);
   const demo=await seedDemoBooks(owner,a),otherDemo=await seedDemoBooks(owner,b);
   const accounts=await db.account.findMany({where:{companyId:first.id,deletedAt:null}});
   const journals=await db.journal.findMany({where:{companyId:first.id,deletedAt:null}});

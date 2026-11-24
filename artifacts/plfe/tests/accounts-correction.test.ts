@@ -20,6 +20,7 @@ import {seedDemoBooks} from "../modules/accounts/demo";
 import {accountingToday} from "../modules/accounts/time";
 import {partySchema,provinces} from "../modules/accounts/schema";
 import type {Actor} from "../modules/core/model";
+import {setupTestTax,testTaxEvidence} from "./helpers/test-tax";
 
 let owner:Actor;
 let originals:Awaited<ReturnType<typeof db.company.findMany>>;
@@ -60,8 +61,9 @@ before(async()=>{
     const accounts=await db.account.findMany({where:{companyId:company.id,deletedAt:null}});
     const a=(code:string)=>accounts.find(a=>a.code===code)!.id;
     const journal=await db.journal.findFirstOrThrow({where:{companyId:company.id,type:"GENERAL"}});
-    const customer=await saveAccountRecord(owner,code,"parties",{code:"TEST-P2-CUSTOMER",name:"TEST customer",isCustomer:true});
-    const supplier=await saveAccountRecord(owner,code,"parties",{code:"TEST-P2-SUPPLIER",name:"TEST supplier",isCustomer:false,isSupplier:true});
+    await setupTestTax(owner,code,false);
+    const customer=await saveAccountRecord(owner,code,"parties",{code:"TEST-P2-CUSTOMER",name:"TEST customer",isCustomer:true,...testTaxEvidence});
+    const supplier=await saveAccountRecord(owner,code,"parties",{code:"TEST-P2-SUPPLIER",name:"TEST supplier",isCustomer:false,isSupplier:true,...testTaxEvidence});
     const post=async(resource:string,payload:any)=>{
       const row=await saveAccountRecord(owner,code,resource,{...payload,date,narration:`TEST-P2/legacy-${randomUUID()}`});
       const posted=await saveAccountRecord(owner,code,resource,{id:row.id,operation:"post"});
@@ -69,10 +71,12 @@ before(async()=>{
     };
     await post("entries",{kind:"JOURNAL",journalId:journal.id,lines:[{accountId:a("1120"),debit:"1000000.0000",credit:"0"},{accountId:a("3900"),debit:"0",credit:"1000000.0000"}]});
     const invoice=await post("invoices",{partyId:customer.id,dueDate:date,lines:[{accountId:a("4100"),description:"TEST charge",qty:"1",rate:"100000"}]});
-    await post("invoices",{kind:"CREDIT_NOTE",originalId:invoice.id,partyId:customer.id,dueDate:date,lines:[{accountId:a("4100"),description:"TEST credit",qty:"1",rate:"5000"}]});
+    const invoiceLine=await db.invoiceLine.findFirstOrThrow({where:{companyId:company.id,invoiceId:invoice.id}});
+    await post("invoices",{kind:"CREDIT_NOTE",originalId:invoice.id,partyId:customer.id,dueDate:date,lines:[{accountId:a("4100"),description:"TEST credit",qty:"0.05",rate:"100000",originalLineId:invoiceLine.id}]});
     await post("payments",{direction:"RECEIPT",method:"BANK",partyId:customer.id,settlementAccountId:a("1120"),amount:"40000",allocations:[{invoiceId:invoice.id,amount:"40000"}]});
     const bill=await post("bills",{partyId:supplier.id,dueDate:date,lines:[{accountId:a("5100"),description:"TEST cost",qty:"1",rate:"20000"}]});
-    await post("bills",{kind:"DEBIT_NOTE",originalId:bill.id,partyId:supplier.id,dueDate:date,lines:[{accountId:a("5100"),description:"TEST debit",qty:"1",rate:"2000"}]});
+    const billLine=await db.billLine.findFirstOrThrow({where:{companyId:company.id,billId:bill.id}});
+    await post("bills",{kind:"DEBIT_NOTE",originalId:bill.id,partyId:supplier.id,dueDate:date,lines:[{accountId:a("5100"),description:"TEST debit",qty:"0.1",rate:"20000",originalLineId:billLine.id}]});
     await post("payments",{direction:"PAYMENT",method:"CASH",partyId:supplier.id,settlementAccountId:a("1110"),amount:"5000",allocations:[{billId:bill.id,amount:"5000"}]});
   }
   originals=await db.company.findMany({where:{code:{in:["PLFE","ZAHRA-HOME"]},deletedAt:null}});
@@ -135,7 +139,11 @@ test("Events and Retail charts contain exact posting/group semantics and aligned
   for(const spec of groupCompanies) {
     const company=await db.company.findFirstOrThrow({where:{code:spec.code,deletedAt:null}});
     const rows=await db.account.findMany({where:{companyId:company.id,active:true,deletedAt:null},include:{parent:true}});
-    assert.equal(rows.filter(a=>!a.counterpartyCompanyId).length,chartTemplate(spec.businessType).length);
+    const template=chartTemplate(spec.businessType),codes=new Set(template.map(a=>a[0]));
+    const taxes=await db.tax.findMany({where:{companyId:company.id}});
+    const taxAccounts=new Set(taxes.flatMap(t=>[t.inputAccountId,t.outputAccountId]));
+    const retainedTaxAccounts=rows.filter(a=>!codes.has(a.code)&&taxAccounts.has(a.id));
+    assert.equal(rows.filter(a=>!a.counterpartyCompanyId).length,template.length+retainedTaxAccounts.length);
     for(const [code,name,type,parent,flag] of chartTemplate(spec.businessType)) {
       const row=rows.find(a=>a.code===code)!;assert.ok(row,code);
       assert.equal(row.name,name);assert.equal(row.type,type);
@@ -199,7 +207,8 @@ test("Chart correction rejects non-Owners, live drafts and locked demo books wit
   // empty books and setting just its calendar wrong: correction must preflight.
   const company=await db.company.findFirstOrThrow({where:{code:"SE",deletedAt:null}});
   await db.company.update({where:{id:company.id},data:{fyStartMonth:1}});
-  const party=await saveAccountRecord(owner,"SE","parties",{code:`REAL-${randomUUID()}`,name:"Not a demo"});
+  await setupTestTax(owner,"SE",false);
+  const party=await saveAccountRecord(owner,"SE","parties",{code:`REAL-${randomUUID()}`,name:"Not a demo",...testTaxEvidence});
   const account=await db.account.findFirstOrThrow({where:{companyId:company.id,code:"4100",active:true}});
   const draft=await saveAccountRecord(owner,"SE","invoices",{partyId:party.id,date,dueDate:date,narration:"Real draft",lines:[{accountId:account.id,description:"Real draft",qty:"1",rate:"10"}]});
   const before=await db.account.count({where:{companyId:company.id}});

@@ -23,6 +23,8 @@ export type Field = {
   hidden?: boolean;
   wide?: boolean;
   label?: string;
+  allowNone?: boolean;
+  readOnly?: boolean;
 };
 
 export function RecordForm({
@@ -65,7 +67,7 @@ export function RecordForm({
             const msg = errors[f.name]?.message as string | undefined;
             const wide = f.wide || f.kind === "textarea" || f.kind === "multi";
             return (
-              <div key={f.name} className={`space-y-1.5 ${wide ? "sm:col-span-2" : ""}`}>
+              <fieldset key={f.name} disabled={f.readOnly} className={`min-w-0 space-y-1.5 ${wide ? "sm:col-span-2" : ""} ${f.readOnly ? "opacity-70" : ""}`}>
                 {f.kind !== "switch" && <Label htmlFor={f.name}>{label}</Label>}
                 {f.kind === "textarea" ? (
                   <Textarea id={f.name} rows={3} {...form.register(f.name)} data-testid={`input-${f.name}`} />
@@ -78,9 +80,9 @@ export function RecordForm({
                   )} />
                 ) : f.kind === "select" ? (
                   <Controller control={form.control} name={f.name} render={({ field }) => (
-                    <Select value={field.value ? String(field.value) : f.name==="province"?"__none__":undefined} onValueChange={v=>field.onChange(v==="__none__"?"":v)}>
+                    <Select value={field.value ? String(field.value) : (f.allowNone||f.name==="province")?"__none__":undefined} onValueChange={v=>field.onChange(v==="__none__"?"":v)}>
                       <SelectTrigger id={f.name} data-testid={`select-${f.name}`}><SelectValue placeholder={L.common.none} /></SelectTrigger>
-                      <SelectContent>{f.name==="province"&&<SelectItem value="__none__">{L.common.none}</SelectItem>}{(f.options ?? []).map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                      <SelectContent>{(f.allowNone||f.name==="province")&&<SelectItem value="__none__">{L.common.none}</SelectItem>}{(f.options ?? []).map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                     </Select>
                   )} />
                 ) : f.kind === "multi" ? (
@@ -113,7 +115,7 @@ export function RecordForm({
                 )}
                 {f.hint && <p className="text-xs text-muted-foreground">{f.hint}</p>}
                 {msg && <p className="text-xs text-destructive" role="alert" data-testid={`error-${f.name}`}>{msg}</p>}
-              </div>
+              </fieldset>
             );
           })}
           {error && <p className="sm:col-span-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" data-testid="text-form-error">{error}</p>}

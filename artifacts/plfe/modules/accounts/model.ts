@@ -10,6 +10,7 @@ export const accountConfig:Record<AccountResource,{model:string;table:string;obj
   departments:{model:"department",table:"departments",object:"department",search:["code","name"]},
   journals:{model:"journal",table:"journals",object:"journal",search:["code","name"]},
   outlets:{model:"outlet",table:"outlets",object:"outlet",search:["code","name","address"]},
+  taxes:{model:"tax",table:"taxes",object:"tax",search:["code","name","authority","province"]},
   invoices:{model:"invoice",table:"invoices",object:"invoice",search:["number","narration"]},
   bills:{model:"bill",table:"bills",object:"bill",search:["number","narration"]},
   payments:{model:"payment",table:"payments",object:"payment",search:["number","narration"]},

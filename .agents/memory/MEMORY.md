@@ -1,3 +1,4 @@
 - [Approved phase scope](foundation-scope.md) — Phase 1 accepted; Phase 2 authorized. VPS deferred to Phase 9; do not ask for server details before then.
 - [Toolchain edge cases](toolchain-edge-cases.md) — Next.js source-root discovery, Orval names and standalone npm lock generation need care.
 - [Delegated identity safety](delegated-identity-safety.md) — Reset/edit operations are indirect grants; identity row locks must follow the Owner guard.
+- [Tax date semantics](tax-date-semantics.md) — defaults follow effective-date families; explicit selections and historical evidence remain pinned.

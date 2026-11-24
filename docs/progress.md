@@ -1,5 +1,67 @@
 # PLFE progress
 
+## Part 2 — Tax — 2026-11-24
+
+Implemented and automatically verified. The single final financial browser
+pass remains scheduled after all five parts; this is not a claim that Parts
+3–5 or the whole revision are complete.
+
+- Added company-owned Tax settings with read/create/update permissions,
+  effective-dated versions, explicit company defaults and account defaults.
+  PostgreSQL excludes overlapping active family/default ranges. Authorities
+  are FBR and the specified PRA/Punjab, SRB/Sindh, KPRA/Khyber Pakhtunkhwa and
+  BRA/Balochistan pairs; no Islamabad authority or legal rate was invented.
+- Accounts default to the effective version of their configured tax family,
+  otherwise applicable company federal tax, otherwise the party's provincial
+  default. Missing configuration, missing required province, inactive/expired
+  versions and incompatible applicability fail explicitly.
+- Invoice/bill editors have separate sales/input tax and withholding choices,
+  non-writing server previews, line tax evidence, document override reasons,
+  explicit party exemption/zero-rating reason/certificate fields, and clearly
+  labelled gross versus net receivable/payable. Lists and allocations use net
+  balances after withholding, not gross sales tax totals.
+- Stored six-decimal percentages, four-decimal line amounts, selected/default
+  snapshots and party evidence. Posting revalidates saved draft evidence and
+  requires review/resave after configuration changes; it does not rewrite
+  historical amounts. Used versions cannot change financial terms or be
+  deleted. A used range can close only without excluding posted originals;
+  a closed used range cannot be extended/reopened, even after deactivation.
+- Sales tax credits output tax; purchases debit input tax. Customer withholding
+  debits advance income tax and reduces receivable, separately from sales tax.
+  Explicit supplier withholding credits its payable account. All associated
+  rows retain each source line's department/outlet tags; Event remains reserved.
+- Credit/debit notes identify original lines, use original snapshots and
+  proportional amounts, enforce cumulative quantity/basis/tax/withholding
+  limits under the ledger lock, and consume final rounding residuals exactly.
+  Concurrent notes cannot over-credit or leave allocated-number fragments.
+  Historical notes still use the original version after its retirement.
+- Added Tax summary and spreadsheet export, separating output/input and customer/
+  supplier withholding, grouped by frozen version and authority. Original,
+  note and cancellation signs follow the actual posting/reversal dates,
+  including reversals in later periods.
+- **76 checks passed:** foundation **24/24**, Accounts **48/48** (the previous
+  35 plus 13 tax regressions), provisioning **4/4**. The optimized production
+  build passed. Tax regressions cover permissions/isolation, exact decimals,
+  default precedence, reasons/certificates, retail input tax, both withholdings,
+  both note directions, concurrency, atomic rollback, immutable history,
+  effective versions, net allocation limits, later-period reversal and export.
+  Synthetic tax fixtures use normal services and explicit test-only evidence
+  in guarded disposable databases, never financial-rule bypasses.
+- Applied the tested tax migrations to this application's local database.
+  Before/after initialization checks found **0 users, 0 companies, 0 tax rates
+  and 0 journal entries**. Only schema/global permissions were initialized.
+  Authorized private Owner enrollment remains available/configured; no
+  credentials, business opening amounts or legal tax rates were generated.
+- Restarted the application/worker and checked clean startup and health. The
+  public preview renders Sign in; its unsigned session request is correctly
+  unauthorized. Signed-in tax journeys remain explicitly queued for the final
+  disposable-books browser pass.
+
+### Revision delivery
+
+The verified code revision will be recorded here after its push succeeds.
+No deployment is included. A failed push must stop further part work.
+
 ## Pre-Tax additions — 2026-11-24
 
 The latest attachment adds data-driven outlets and a consistent professional

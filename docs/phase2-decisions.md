@@ -21,6 +21,36 @@ invented. Historical approval/financial protections below remain mandatory.
 The following earlier scope describes the baseline and is historical wherever
 it conflicts with this override.
 
+### Tax semantics
+
+- No legal tax rates are seeded. Missing active/effective configuration is an
+  error, not a tax-free fallback. Federal/withholding authority is FBR/ALL;
+  provincial authorities use only the four approved province pairs.
+- An account default is a date-resolved tax-family anchor. An explicit document
+  selection pins an applicable version, and posted documents pin snapshots.
+  **Why:** scheduled future rates should not require editing every account,
+  while historical rates and the reasons for overrides must remain reviewable.
+- Used versions retain code, name, authority, applicability, percentage, posting
+  accounts and financial meaning. Ending an initially open range is permitted
+  only without excluding a posted original. A closed used range cannot later
+  expand; later ranges/rates require a new version. Notes keep original
+  snapshots rather than being rejected because the old version expired.
+- Each line computes sales/input tax and separately selected withholding on
+  its net basis, using six-decimal percentages and half-up four-decimal amounts.
+  Gross equals subtotal plus sales/input tax. Settlement and allocation use
+  gross less withholding. Customer withholding is advance income tax, not
+  charged sales tax; supplier withholding is a separate payable.
+- Explicit clear/lower choices require a written document reason. Exempt and
+  zero-rated parties require their own written reason and certificate reference;
+  selected/default tax and party evidence are saved on the document. No
+  historical amounts or evidence are silently refreshed when posting.
+- Notes proportion original stored basis/tax/withholding by original quantity.
+  The final portion consumes exact residuals after earlier posted notes.
+  Cancellation removes a note's consumption through normal controls, not deletion.
+- Tax reporting uses frozen line facts and original/reversal entry dates, not
+  mutable masters or cancellation status alone. This preserves the original
+  period and shows a later-period reversal with its opposite sign.
+
 ### Pre-Tax outlet and interface addition
 
 The latest attachment explicitly adds outlets to Part 1 before Tax. Any company

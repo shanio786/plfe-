@@ -6,6 +6,7 @@ import type {Actor} from "@/modules/core/model";
 import {saveAccountRecord} from "./service";
 import {accountingToday} from "./time";
 import {assertDemoOnly} from "./correction";
+import {decimal} from "./balances";
 
 const prefix="TEST-P2/CORRECTED/";
 /** Explicit demo fixture, never run by normal startup or production migrations. */
@@ -51,8 +52,19 @@ export async function seedDemoBooks(actor:Actor,code:string) {
     {accountId:a(dr),debit:amount,credit:"0.0000",departmentId:department.id,outletId:accounts.find(a=>a.code===dr)?.outletId??null},
     {accountId:a(cr),debit:"0.0000",credit:amount,departmentId:department.id,partyId,outletId:accounts.find(a=>a.code===cr)?.outletId??null}
   ]});
-  const invoice=(index:string,rate:string,account="4100",originalId?:string)=>document("invoices",index,{kind:originalId?"CREDIT_NOTE":"INVOICE",partyId:customer.id,dueDate:date,originalId,lines:[{accountId:a(account),description:"TEST DATA — expo charge",qty:"1.0000",rate,departmentId:department.id}]});
-  const bill=(index:string,rate:string,account="5100",originalId?:string)=>document("bills",index,{kind:originalId?"DEBIT_NOTE":"BILL",partyId:supplier.id,dueDate:date,originalId,lines:[{accountId:a(account),description:"TEST DATA — expo cost",qty:"1.0000",rate,departmentId:department.id}]});
+  async function trade(resource:"invoices"|"bills",index:string,amount:string,account:string,originalId?:string) {
+    const invoice=resource==="invoices",model:any=invoice?db.invoiceLine:db.billLine;
+    const source=originalId?await model.findFirstOrThrow({where:{companyId,...(invoice?{invoiceId:originalId}:{billId:originalId})},orderBy:{lineNo:"asc"}}):null;
+    // Unit-one synthetic fixtures allow exact proportional notes without
+    // changing an original price or inventing a replacement tax calculation.
+    return document(resource,index,{kind:originalId?(invoice?"CREDIT_NOTE":"DEBIT_NOTE"):(invoice?"INVOICE":"BILL"),
+      partyId:invoice?customer.id:supplier.id,dueDate:date,originalId,lines:[{
+        accountId:source?.accountId??a(account),description:invoice?"TEST DATA — expo charge":"TEST DATA — expo cost",
+        qty:source?decimal(amount).div(source.rate).toFixed(4):amount,rate:source?.rate.toFixed(4)??"1.0000",
+        originalLineId:source?.id,departmentId:source?.departmentId??department.id,outletId:source?.outletId??null}]});
+  }
+  const invoice=(index:string,amount:string,account="4100",originalId?:string)=>trade("invoices",index,amount,account,originalId);
+  const bill=(index:string,amount:string,account="5100",originalId?:string)=>trade("bills",index,amount,account,originalId);
   const payment=(index:string,direction:string,amount:string,cash:boolean,allocations:any[]=[])=>document("payments",index,{direction,method:cash?"CASH":"BANK",partyId:direction==="RECEIPT"?customer.id:supplier.id,settlementAccountId:a(cash?cashAccount:bankAccount),amount,allocations,departmentId:department.id,outletId:cash?outlet?.id??null:null});
   await voucher("01-opening","JOURNAL",bankAccount,"3990","1000000.0000");
   await voucher("02-bank-to-cash","TRANSFER",cashAccount,bankAccount,"100000.0000");

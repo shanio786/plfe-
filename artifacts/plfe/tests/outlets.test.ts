@@ -12,6 +12,7 @@ import {postEntry,reverseEntry} from "../lib/posting";
 import {accountingToday} from "../modules/accounts/time";
 import {chartTemplate} from "../modules/accounts/template";
 import type {Actor} from "../modules/core/model";
+import {setupTestTax,testTaxEvidence} from "./helpers/test-tax";
 
 let owner:Actor,viewer:Actor,events:any,retail:any,other:any;
 const suffix=randomUUID().slice(0,8).toUpperCase();
@@ -23,6 +24,7 @@ before(async()=>{
   await db.permission.createMany({data:permissionCodes.map(code=>({code,description:code})),skipDuplicates:true});
   events=await db.$transaction(tx=>provisionCompany(tx,owner,{code:`OUT-E-${suffix}`,name:"TEST events outlets",legalName:"TEST events outlets",businessType:"EVENTS"}),{timeout:60000});
   retail=await db.$transaction(tx=>provisionCompany(tx,owner,{code:`OUT-R-${suffix}`,name:"TEST retail outlets",legalName:"TEST retail outlets",businessType:"RETAIL"}),{timeout:60000});
+  await setupTestTax(owner,events.code,false);await setupTestTax(owner,retail.code,false);
   viewer=await db.user.create({data:{name:"Outlet scoped viewer",email:`outlet-viewer-${suffix.toLowerCase()}@test.invalid`,passwordHash:"no-login-test-identity",mustChangePassword:false}});
   const role=await db.role.findFirstOrThrow({where:{companyId:events.id,name:"Viewer"}});
   await saveRecord(owner,events.code,"memberships",{userId:viewer.id,roleId:role.id});
@@ -81,8 +83,8 @@ test("Permission, isolation and composite foreign keys protect outlets and all d
 });
 test("Posting retains exact outlet tags for invoices, bills, payments and journals",async()=>{
   const place=await outlet("POSTING","Posting counter","COUNTER");
-  const customer=await saveAccountRecord(owner,events.code,"parties",{code:"OUT-C",name:"TEST outlet customer"});
-  const supplier=await saveAccountRecord(owner,events.code,"parties",{code:"OUT-S",name:"TEST outlet supplier",isCustomer:false,isSupplier:true});
+  const customer=await saveAccountRecord(owner,events.code,"parties",{code:"OUT-C",name:"TEST outlet customer",...testTaxEvidence});
+  const supplier=await saveAccountRecord(owner,events.code,"parties",{code:"OUT-S",name:"TEST outlet supplier",isCustomer:false,isSupplier:true,...testTaxEvidence});
   const cash=place.accounts.find((a:any)=>a.isCash),inventory=place.accounts.find((a:any)=>!a.isCash);
   const income=await db.account.findFirstOrThrow({where:{companyId:events.id,code:"4100"}});
   for(const [resource,party,account] of [["invoices",customer,income],["bills",supplier,inventory]] as const) {

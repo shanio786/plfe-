@@ -10,7 +10,7 @@ import { RecordForm, type Field } from "@/modules/core/components/record-form";
 import { ActiveTag, Tag, useAction, useAdmin } from "@/modules/core/components/shared";
 import { dateTime } from "@/modules/core/components/format";
 import { accountSchema, departmentSchema, journalSchema, outletSchema, partySchema, provinces } from "../schema";
-import { A, OUTLET_TYPES, EmptyBox, ErrorBox, Money, col, perm, useAll, useDeepId, useOp, type Col } from "./util";
+import { A, OUTLET_TYPES, taxLabel, EmptyBox, ErrorBox, Money, col, perm, useAll, useDeepId, useOp, type Col } from "./util";
 import { DetailDialog, Facts, useRecord } from "./detail";
 
 type MasterCfg = {
@@ -26,6 +26,8 @@ type MasterCfg = {
   extraView?: (r: RecordData) => ReactNode;
   alt?: (open: (id: string) => void, refresh: number) => ReactNode;
   statusOptions?: { value: string; label: string }[];
+  /** When true for a record, only these fields stay editable; everything else is shown read-only and delete is hidden. */
+  restrictEdit?: (r: RecordData) => string[] | null;
 };
 
 function Master(cfg: MasterCfg) {
@@ -39,7 +41,8 @@ function Master(cfg: MasterCfg) {
   const { rec, error, retry } = useRecord(cfg.resource, id, key);
   const mayCreate = can(perm(cfg.resource, "create"));
   const mayUpdate = can(perm(cfg.resource, "update"));
-  const mayDelete = !cfg.noDelete && can(perm(cfg.resource, "delete"));
+  const mayDelete = !cfg.noDelete && can(perm(cfg.resource, "delete")) && !(rec && cfg.restrictEdit?.(rec));
+  const editable = form?.edit ? cfg.restrictEdit?.(form.edit) ?? null : null;
 
   const submit = async (v: Record<string, any>) => {
     const data = { ...v };
@@ -86,7 +89,8 @@ function Master(cfg: MasterCfg) {
       </DetailDialog>
       <RecordForm
         open={!!form} onOpenChange={(o) => !o && setForm(null)} title={form?.edit ? `${L.common.edit} · ${form.edit.code}` : cfg.newLabel}
-        fields={cfg.fields} schema={cfg.schema} isEdit={!!form?.edit} defaults={form?.edit ? cfg.toForm(form.edit) : cfg.defaults} onSubmit={submit}
+        description={editable ? A.a.outletAccountTaxOnly : undefined}
+        fields={editable ? cfg.fields.map((f) => (editable.includes(f.name) ? f : { ...f, readOnly: true })) : cfg.fields} schema={cfg.schema} isEdit={!!form?.edit} defaults={form?.edit ? cfg.toForm(form.edit) : cfg.defaults} onSubmit={submit}
       />
       {dialog}
     </>
@@ -144,19 +148,22 @@ export function ChartSection() {
   const { can } = useAdmin();
   const groups = useAll("chart", can(perm("chart", "read")));
   const parentOpts = groups.rows.filter((r) => r.isGroup).map((r) => ({ value: r.id, label: `${r.code} · ${r.name}` }));
+  const taxes = useAll("taxes", can(perm("taxes", "read")));
+  const taxOpts = [...taxes.rows.filter((t) => t.kind !== "WITHHOLDING" && t.active !== false).map((t) => ({ value: t.id, label: `${taxLabel(t)} · ${A.taxApplies[t.applicability] ?? ""}` }))];
   const { company } = useAdmin();
   return (
     <Master
       resource="chart" schema={accountSchema} newLabel={A.a.newAccount}
-      defaults={{ code: "", name: "", type: "ASSET", parentId: null, isGroup: false, isBank: false, isCash: false, active: true }}
-      toForm={(r) => ({ code: r.code, name: r.name, type: r.type, parentId: r.parentId ?? null, isGroup: !!r.isGroup, isBank: !!r.isBank, isCash: !!r.isCash, active: !!r.active })}
+      defaults={{ code: "", name: "", type: "ASSET", parentId: null, defaultTaxId: "", isGroup: false, isBank: false, isCash: false, active: true }}
+      toForm={(r) => ({ code: r.code, name: r.name, type: r.type, parentId: r.parentId ?? null, defaultTaxId: r.defaultTaxId ?? "", isGroup: !!r.isGroup, isBank: !!r.isBank, isCash: !!r.isCash, active: !!r.active })}
       fields={[
-        { name: "code", kind: "text" }, { name: "name", kind: "text" }, { name: "type", kind: "select", options: typeOpts }, { name: "parentId", kind: "select", options: parentOpts },
+        { name: "code", kind: "text" }, { name: "name", kind: "text" }, { name: "type", kind: "select", options: typeOpts }, { name: "parentId", kind: "select", options: parentOpts }, { name: "defaultTaxId", kind: "select", allowNone: true, options: taxOpts, hint: A.a.defaultTaxHint, wide: true },
         { name: "isGroup", kind: "switch" }, { name: "active", kind: "switch" }, { name: "isBank", kind: "switch" }, { name: "isCash", kind: "switch" },
       ]}
       columns={[codeCol, nameCol, col("type", (r) => <span className="text-xs">{A.types[r.type] ?? r.type}</span>, true), col("parent", (r) => <span className="text-xs text-muted-foreground">{r.parent ? `${r.parent.code} · ${r.parent.name}` : "—"}</span>), col("flags", (r) => <Flags r={r} />), activeCol]}
-      facts={(r) => [[A.f.type, A.types[r.type] ?? r.type], [A.f.parent, r.parent ? `${r.parent.code} · ${r.parent.name}` : "—"], [A.f.flags, <Flags key="f" r={r} />], [A.f.balance, r.balance !== undefined ? <Money key="b" v={r.balance} /> : "—"]]}
+      facts={(r) => [[A.f.type, A.types[r.type] ?? r.type], [A.f.parent, r.parent ? `${r.parent.code} · ${r.parent.name}` : "—"], [A.f.flags, <Flags key="f" r={r} />], [A.f.defaultTaxId, r.defaultTax ? <span key="dt" className="font-mono text-xs">{taxLabel(r.defaultTax)}</span> : "—"], [A.f.balance, r.balance !== undefined ? <Money key="b" v={r.balance} /> : "—"]]}
       extraView={(r) => !r.isGroup && <Link href={`/${company}/accounts/ledger?accountId=${r.id}`} className="inline-block text-sm font-medium text-primary hover:underline" data-testid="link-account-ledger">{A.a.ledgerOf}</Link>}
+      restrictEdit={(r) => (r.outletId || r.outlet ? ["defaultTaxId"] : null)}
       alt={(open, refresh) => <ChartTree open={open} refresh={refresh} />}
     />
   );
@@ -172,17 +179,17 @@ export function PartiesSection() {
   return (
     <Master
       resource="parties" schema={partySchema} newLabel={A.a.newParty}
-      defaults={{ code: "", name: "", companyName: "", phone: "", email: "", city: "", province: "", ntn: "", address: "", creditDays: 0, isCustomer: true, isSupplier: false, isExhibitor: false, isSponsor: false, isStaff: false, active: true, openingBalance: "0.0000", openingSide: "RECEIVABLE" }}
-      toForm={(r) => ({ code: r.code, name: r.name, companyName: r.companyName ?? "", phone: r.phone ?? "", email: r.email ?? "", city: r.city ?? "", province: r.province ?? "", ntn: r.ntn ?? "", address: r.address ?? "", creditDays: r.creditDays ?? 0, isCustomer: !!r.isCustomer, isSupplier: !!r.isSupplier, isExhibitor: !!r.isExhibitor, isSponsor: !!r.isSponsor, isStaff: !!r.isStaff, active: !!r.active })}
+      defaults={{ code: "", name: "", companyName: "", phone: "", email: "", city: "", province: "", ntn: "", strn: "", taxTreatment: "STANDARD", taxExemptionReason: "", taxCertificateRef: "", address: "", creditDays: 0, isCustomer: true, isSupplier: false, isExhibitor: false, isSponsor: false, isStaff: false, active: true, openingBalance: "0.0000", openingSide: "RECEIVABLE" }}
+      toForm={(r) => ({ code: r.code, name: r.name, companyName: r.companyName ?? "", phone: r.phone ?? "", email: r.email ?? "", city: r.city ?? "", province: r.province ?? "", ntn: r.ntn ?? "", strn: r.strn ?? "", taxTreatment: r.taxTreatment ?? "STANDARD", taxExemptionReason: r.taxExemptionReason ?? "", taxCertificateRef: r.taxCertificateRef ?? "", address: r.address ?? "", creditDays: r.creditDays ?? 0, isCustomer: !!r.isCustomer, isSupplier: !!r.isSupplier, isExhibitor: !!r.isExhibitor, isSponsor: !!r.isSponsor, isStaff: !!r.isStaff, active: !!r.active })}
       fields={[
-        { name: "code", kind: "text" }, { name: "name", kind: "text" }, { name: "companyName", kind: "text" }, { name: "ntn", kind: "text" }, { name: "phone", kind: "text" }, { name: "email", kind: "email" },
+        { name: "code", kind: "text" }, { name: "name", kind: "text" }, { name: "companyName", kind: "text" }, { name: "ntn", kind: "text" }, { name: "strn", kind: "text", label: A.f.strn }, { name: "taxTreatment", kind: "select", label: A.f.taxTreatment, options: Object.entries(A.taxTreatments).map(([value, label]) => ({ value, label })), hint: A.t.nonStandardHint }, { name: "taxCertificateRef", kind: "text", label: A.f.taxCertificateRef }, { name: "taxExemptionReason", kind: "textarea", label: A.f.taxExemptionReason }, { name: "phone", kind: "text" }, { name: "email", kind: "email" },
         { name: "city", kind: "text" }, { name: "province", kind: "select", options: provinces.map(value=>({value,label:value})) }, { name: "creditDays", kind: "number" }, { name: "address", kind: "textarea" },
         ...ROLE_KEYS.map((k) => ({ name: k, kind: "switch" as const })), { name: "active", kind: "switch" },
         { name: "openingBalance", kind: "money", createOnly: true, hint: A.a.openingHint },
         { name: "openingSide", kind: "select", createOnly: true, options: Object.entries(A.sides).map(([value, label]) => ({ value, label })) },
       ]}
       columns={[codeCol, nameCol, col("companyName", (r) => <span className="text-xs">{r.companyName ?? "—"}</span>), col("roles", (r) => <Roles r={r} />), col("city"), col("province"), col("creditDays", (r) => <span className="font-mono text-xs">{r.creditDays ?? 0}</span>), activeCol]}
-      facts={(r) => [[L.f.companyName, r.companyName || "—"], [A.f.roles, <Roles key="r" r={r} />], [L.f.phone, r.phone || "—"], [L.f.email, r.email || "—"], [L.f.city, r.city || "—"], [L.f.province, r.province || "—"], [L.f.ntn, r.ntn || "—"], [L.f.creditDays, String(r.creditDays ?? 0)], [L.f.address, r.address || "—"]]}
+      facts={(r) => [[L.f.companyName, r.companyName || "—"], [A.f.roles, <Roles key="r" r={r} />], [L.f.phone, r.phone || "—"], [L.f.email, r.email || "—"], [L.f.city, r.city || "—"], [L.f.province, r.province || "—"], [L.f.ntn, r.ntn || "—"], [A.f.strn, r.strn || "—"], [A.f.taxTreatment, A.taxTreatments[r.taxTreatment] ?? r.taxTreatment ?? "—"], [A.f.taxExemptionReason, r.taxExemptionReason || "—"], [A.f.taxCertificateRef, r.taxCertificateRef || "—"], [L.f.creditDays, String(r.creditDays ?? 0)], [L.f.address, r.address || "—"]]}
       extraView={(r) => <Link href={`/${company}/accounts/party-ledger?partyId=${r.id}`} className="inline-block text-sm font-medium text-primary hover:underline" data-testid="link-party-ledger">{A.nav["party-ledger"]}</Link>}
     />
   );

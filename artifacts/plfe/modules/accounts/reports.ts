@@ -9,6 +9,7 @@ import type {Actor} from "@/modules/core/model";
 import {dateOnly,record,type Tx} from "./model";
 import {zero} from "./balances";
 import {accountingToday} from "./time";
+import {taxSummary} from "./tax-report";
 const reportPageSchema=listSchema.extend({pageSize:z.coerce.number().int().min(1).max(1000).default(100)});
 
 async function conditions(tx:Tx,companyId:string,raw:Record<string,string>) {
@@ -27,12 +28,13 @@ async function conditions(tx:Tx,companyId:string,raw:Record<string,string>) {
   return {from,to,filter};
 }
 export async function accountsReport(actor:Actor,code:string,report:string,raw:Record<string,string>,exporting=false) {
-  if(!["trial-balance","ledger","party-ledger"].includes(report))throw new AppError(404,"Unknown accounting report");
+  if(!["trial-balance","ledger","party-ledger","tax-summary"].includes(report))throw new AppError(404,"Unknown accounting report");
   const p=reportPageSchema.parse(raw);
   return db.$transaction(async tx=>{
     const company=await companyScope(tx,actor,code,"accounts.report.read"),companyId=company.id;
     if(report==="party-ledger"&&!raw.partyId)throw new AppError(400,"Select a party for its ledger");
-    const {from,filter}=await conditions(tx,companyId,raw);
+    const {from,to,filter}=await conditions(tx,companyId,raw);
+    if(report==="tax-summary")return taxSummary(tx,companyId,from,to,p,exporting,raw);
     if(report==="trial-balance") {
       const rows:any[]=await tx.$queryRaw(Prisma.sql`
         WITH book AS (SELECT l.*,e.date FROM journal_lines l JOIN journal_entries e ON e.id=l.entry_id AND e.company_id=l.company_id WHERE ${filter})
@@ -81,12 +83,12 @@ export async function accountsOverview(actor:Actor,code:string) {
       JOIN accounts a ON a.id=l.account_id AND a.company_id=l.company_id
       WHERE l.company_id=${companyId}::uuid AND e.status='POSTED' AND e.deleted_at IS NULL AND l.deleted_at IS NULL`;
     const [receivables]:any[]=await tx.$queryRaw`SELECT
-      coalesce((SELECT sum(total) FROM invoices WHERE company_id=${companyId}::uuid AND status='POSTED' AND kind='INVOICE' AND deleted_at IS NULL),0)
-      -coalesce((SELECT sum(total) FROM invoices WHERE company_id=${companyId}::uuid AND status='POSTED' AND kind='CREDIT_NOTE' AND deleted_at IS NULL),0)
+      coalesce((SELECT sum(total-withholding_total) FROM invoices WHERE company_id=${companyId}::uuid AND status='POSTED' AND kind='INVOICE' AND deleted_at IS NULL),0)
+      -coalesce((SELECT sum(total-withholding_total) FROM invoices WHERE company_id=${companyId}::uuid AND status='POSTED' AND kind='CREDIT_NOTE' AND deleted_at IS NULL),0)
       -coalesce((SELECT sum(a.amount) FROM payment_allocations a JOIN payments p ON p.id=a.payment_id AND p.company_id=a.company_id WHERE a.company_id=${companyId}::uuid AND a.invoice_id IS NOT NULL AND a.deleted_at IS NULL AND p.status='POSTED' AND p.deleted_at IS NULL),0) AS amount`;
     const [payables]:any[]=await tx.$queryRaw`SELECT
-      coalesce((SELECT sum(total) FROM bills WHERE company_id=${companyId}::uuid AND status='POSTED' AND kind='BILL' AND deleted_at IS NULL),0)
-      -coalesce((SELECT sum(total) FROM bills WHERE company_id=${companyId}::uuid AND status='POSTED' AND kind='DEBIT_NOTE' AND deleted_at IS NULL),0)
+      coalesce((SELECT sum(total-withholding_total) FROM bills WHERE company_id=${companyId}::uuid AND status='POSTED' AND kind='BILL' AND deleted_at IS NULL),0)
+      -coalesce((SELECT sum(total-withholding_total) FROM bills WHERE company_id=${companyId}::uuid AND status='POSTED' AND kind='DEBIT_NOTE' AND deleted_at IS NULL),0)
       -coalesce((SELECT sum(a.amount) FROM payment_allocations a JOIN payments p ON p.id=a.payment_id AND p.company_id=a.company_id WHERE a.company_id=${companyId}::uuid AND a.bill_id IS NOT NULL AND a.deleted_at IS NULL AND p.status='POSTED' AND p.deleted_at IS NULL),0) AS amount`;
     const recent=await tx.journalEntry.findMany({where:{companyId,status:"POSTED",deletedAt:null},take:8,orderBy:[{date:"desc"},{createdAt:"desc"}],include:{journal:true,lines:{where:{companyId,deletedAt:null},select:{debit:true}}}});
     const recentEntries=recent.map(({lines,...entry})=>({...entry,totalDebit:lines.reduce((total,line)=>total.add(line.debit),zero()).toFixed(4)}));

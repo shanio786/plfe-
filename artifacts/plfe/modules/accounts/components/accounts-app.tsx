@@ -1,6 +1,6 @@
 "use client";
 import { Suspense, type ReactNode } from "react";
-import { BookCopy, Building, FileInput, FileOutput, Gauge, HandCoins, Layers3, ListTree, NotebookTabs, Scale, ScrollText, Settings2, Store, UsersRound } from "lucide-react";
+import { BookCopy, Building, FileInput, FileOutput, Gauge, HandCoins, Layers3, ListTree, NotebookTabs, Percent, Receipt, Scale, ScrollText, Settings2, Store, UsersRound } from "lucide-react";
 import { L } from "@/lib/labels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminApp, type ShellNav } from "@/modules/core/components/admin-app";
@@ -11,18 +11,19 @@ import { PaymentsSection } from "./payments";
 import { VouchersSection } from "./vouchers";
 import { ReportSection } from "./reports";
 import { SettingsSection } from "./settings";
+import { TaxSummarySection, TaxesSection } from "./taxes";
 
 const NAV: ShellNav = [
   { group: "books", items: [{ key: "overview", icon: Gauge }, { key: "vouchers", icon: NotebookTabs }] },
   { group: "documents", items: [{ key: "invoices", icon: FileOutput }, { key: "bills", icon: FileInput }, { key: "payments", icon: HandCoins }] },
-  { group: "reports", items: [{ key: "trial-balance", icon: Scale }, { key: "ledger", icon: ScrollText }, { key: "party-ledger", icon: BookCopy }] },
+  { group: "reports", items: [{ key: "trial-balance", icon: Scale }, { key: "ledger", icon: ScrollText }, { key: "party-ledger", icon: BookCopy }, { key: "tax-summary", icon: Percent }] },
   { group: "masters", items: [{ key: "chart", icon: ListTree }, { key: "parties", icon: UsersRound }, { key: "departments", icon: Building }, { key: "journals", icon: Layers3 }, { key: "outlets", icon: Store }] },
-  { group: "setup", items: [{ key: "settings", icon: Settings2 }] },
+  { group: "setup", items: [{ key: "settings", icon: Settings2 }, { key: "taxes", icon: Receipt }] },
 ];
 const READ: Record<string, string> = {
   overview: "accounts.report.read", chart: "accounts.chart.read", parties: "accounts.party.read", departments: "accounts.department.read", journals: "accounts.journal.read", outlets: "accounts.outlet.read",
   invoices: "accounts.invoice.read", bills: "accounts.bill.read", payments: "accounts.payment.read", vouchers: "accounts.entry.read",
-  "trial-balance": "accounts.report.read", ledger: "accounts.report.read", "party-ledger": "accounts.report.read", settings: "accounts.settings.read",
+  "trial-balance": "accounts.report.read", ledger: "accounts.report.read", "party-ledger": "accounts.report.read", settings: "accounts.settings.read", taxes: "accounts.tax.read", "tax-summary": "accounts.report.read",
 };
 
 function render(section: string): ReactNode {
@@ -40,6 +41,8 @@ function render(section: string): ReactNode {
       case "vouchers": return <VouchersSection />;
       case "trial-balance": case "ledger": case "party-ledger": return <ReportSection report={section} />;
       case "settings": return <SettingsSection />;
+      case "taxes": return <TaxesSection />;
+      case "tax-summary": return <TaxSummarySection />;
       default: return null;
     }
   })();

@@ -5,6 +5,7 @@ import {config} from "../../lib/config";
 import {permissionCodes} from "../../lib/role-templates";
 import {initializeGroup} from "../../modules/accounts/group";
 import {seedDemoBooks} from "../../modules/accounts/demo";
+import {setupTestTax} from "./test-tax";
 
 // Tester's generated login is accepted through stdin, never arguments, a file,
 // console output or real operator credentials. This cannot target application books.
@@ -21,6 +22,7 @@ async function main() {
     await tx.permission.createMany({data:permissionCodes.map(code=>({code,description:code})),skipDuplicates:true});
     await initializeGroup(tx,owner);
   },{timeout:120000});
+  await setupTestTax(owner,"PLFE");await setupTestTax(owner,"ZAHRA-HOME");
   await seedDemoBooks(owner,"PLFE");
   await seedDemoBooks(owner,"ZAHRA-HOME");
   process.stdout.write("Disposable browser books ready; no credentials were logged.\n");

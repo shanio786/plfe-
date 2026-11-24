@@ -24,6 +24,7 @@ model Company {
   businessTypeRecord BusinessType @relation(fields:[businessType],references:[code],onDelete:Restrict)
   counterpartyAccounts Account[] @relation("CounterpartyCompany")
   outlets Outlet[]
+  taxes Tax[]
   lockDate         DateTime? @map("lock_date") @db.Date
   active           Boolean   @default(true)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -420,6 +421,44 @@ model Department {
   @@map("departments")
 }
 
+model Tax {
+  id String @id @default(uuid()) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  code String
+  name String
+  version Int @default(1)
+  kind String
+  authority String
+  percentage Decimal @db.Decimal(9,6)
+  applicability String
+  province String @default("ALL")
+  outputAccountId String @map("output_account_id") @db.Uuid
+  inputAccountId String @map("input_account_id") @db.Uuid
+  isDefault Boolean @default(true) @map("is_default")
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo DateTime? @map("effective_to") @db.Date
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String? @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String? @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company Company @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  outputAccount Account @relation("TaxOutputAccount",fields:[outputAccountId,companyId],references:[id,companyId],onDelete:Restrict)
+  inputAccount Account @relation("TaxInputAccount",fields:[inputAccountId,companyId],references:[id,companyId],onDelete:Restrict)
+  defaultAccounts Account[] @relation("AccountDefaultTax")
+  invoiceLines InvoiceLine[] @relation("InvoiceSelectedTax")
+  invoiceDefaults InvoiceLine[] @relation("InvoiceDefaultTax")
+  invoiceWithholdings InvoiceLine[] @relation("InvoiceWithholdingTax")
+  billLines BillLine[] @relation("BillSelectedTax")
+  billDefaults BillLine[] @relation("BillDefaultTax")
+  billWithholdings BillLine[] @relation("BillWithholdingTax")
+  @@unique([id,companyId])
+  @@unique([companyId,code,version])
+  @@index([companyId,kind,active,effectiveFrom])
+  @@map("taxes")
+}
+
 model Account {
   id String @id @default(uuid()) @db.Uuid
   companyId String @map("company_id") @db.Uuid
@@ -434,6 +473,10 @@ model Account {
   counterpartyCompany Company? @relation("CounterpartyCompany",fields:[counterpartyCompanyId],references:[id],onDelete:Restrict)
   outletId String? @map("outlet_id") @db.Uuid
   outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
+  defaultTaxId String? @map("default_tax_id") @db.Uuid
+  defaultTax Tax? @relation("AccountDefaultTax",fields:[defaultTaxId,companyId],references:[id,companyId],onDelete:Restrict)
+  outputTaxes Tax[] @relation("TaxOutputAccount")
+  inputTaxes Tax[] @relation("TaxInputAccount")
   active Boolean @default(true)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy String? @map("created_by") @db.Uuid
@@ -466,6 +509,10 @@ model Party {
   city String?
   province String?
   ntn String?
+  strn String?
+  taxTreatment String @default("STANDARD") @map("tax_treatment")
+  taxExemptionReason String? @map("tax_exemption_reason")
+  taxCertificateRef String? @map("tax_certificate_ref")
   address String?
   creditDays Int @default(0) @map("credit_days")
   isCustomer Boolean @default(true) @map("is_customer")
@@ -603,6 +650,11 @@ model Invoice {
   status String @default("DRAFT")
   subtotal Decimal @default(0) @db.Decimal(18,4)
   taxTotal Decimal @default(0) @map("tax_total") @db.Decimal(18,4)
+  withholdingTotal Decimal @default(0) @map("withholding_total") @db.Decimal(18,4)
+  taxOverrideReason String? @map("tax_override_reason")
+  partyTaxTreatment String @default("STANDARD") @map("party_tax_treatment")
+  partyTaxReason String? @map("party_tax_reason")
+  partyTaxCertificate String? @map("party_tax_certificate")
   total Decimal @default(0) @db.Decimal(18,4)
   entryId String? @map("entry_id") @db.Uuid
   reversalEntryId String? @map("reversal_entry_id") @db.Uuid
@@ -638,6 +690,22 @@ model InvoiceLine {
   rate Decimal @db.Decimal(18,4)
   total Decimal @db.Decimal(18,4)
   taxId String? @map("tax_id") @db.Uuid
+  tax Tax? @relation("InvoiceSelectedTax",fields:[taxId,companyId],references:[id,companyId],onDelete:Restrict)
+  defaultTaxId String? @map("default_tax_id") @db.Uuid
+  defaultTax Tax? @relation("InvoiceDefaultTax",fields:[defaultTaxId,companyId],references:[id,companyId],onDelete:Restrict)
+  taxSelection String @default("AUTO") @map("tax_selection")
+  taxRate Decimal @default(0) @map("tax_rate") @db.Decimal(9,6)
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(18,4)
+  taxSnapshot Json? @map("tax_snapshot")
+  defaultTaxSnapshot Json? @map("default_tax_snapshot")
+  withholdingTaxId String? @map("withholding_tax_id") @db.Uuid
+  withholdingTax Tax? @relation("InvoiceWithholdingTax",fields:[withholdingTaxId,companyId],references:[id,companyId],onDelete:Restrict)
+  withholdingRate Decimal @default(0) @map("withholding_rate") @db.Decimal(9,6)
+  withholdingAmount Decimal @default(0) @map("withholding_amount") @db.Decimal(18,4)
+  withholdingSnapshot Json? @map("withholding_snapshot")
+  originalLineId String? @map("original_line_id") @db.Uuid
+  originalLine InvoiceLine? @relation("InvoiceLineNotes",fields:[originalLineId,companyId],references:[id,companyId],onDelete:Restrict)
+  noteLines InvoiceLine[] @relation("InvoiceLineNotes")
   eventId String? @map("event_id") @db.Uuid
   outletId String? @map("outlet_id") @db.Uuid
   departmentId String? @map("department_id") @db.Uuid
@@ -669,6 +737,11 @@ model Bill {
   status String @default("DRAFT")
   subtotal Decimal @default(0) @db.Decimal(18,4)
   taxTotal Decimal @default(0) @map("tax_total") @db.Decimal(18,4)
+  withholdingTotal Decimal @default(0) @map("withholding_total") @db.Decimal(18,4)
+  taxOverrideReason String? @map("tax_override_reason")
+  partyTaxTreatment String @default("STANDARD") @map("party_tax_treatment")
+  partyTaxReason String? @map("party_tax_reason")
+  partyTaxCertificate String? @map("party_tax_certificate")
   total Decimal @default(0) @db.Decimal(18,4)
   entryId String? @map("entry_id") @db.Uuid
   reversalEntryId String? @map("reversal_entry_id") @db.Uuid
@@ -704,6 +777,22 @@ model BillLine {
   rate Decimal @db.Decimal(18,4)
   total Decimal @db.Decimal(18,4)
   taxId String? @map("tax_id") @db.Uuid
+  tax Tax? @relation("BillSelectedTax",fields:[taxId,companyId],references:[id,companyId],onDelete:Restrict)
+  defaultTaxId String? @map("default_tax_id") @db.Uuid
+  defaultTax Tax? @relation("BillDefaultTax",fields:[defaultTaxId,companyId],references:[id,companyId],onDelete:Restrict)
+  taxSelection String @default("AUTO") @map("tax_selection")
+  taxRate Decimal @default(0) @map("tax_rate") @db.Decimal(9,6)
+  taxAmount Decimal @default(0) @map("tax_amount") @db.Decimal(18,4)
+  taxSnapshot Json? @map("tax_snapshot")
+  defaultTaxSnapshot Json? @map("default_tax_snapshot")
+  withholdingTaxId String? @map("withholding_tax_id") @db.Uuid
+  withholdingTax Tax? @relation("BillWithholdingTax",fields:[withholdingTaxId,companyId],references:[id,companyId],onDelete:Restrict)
+  withholdingRate Decimal @default(0) @map("withholding_rate") @db.Decimal(9,6)
+  withholdingAmount Decimal @default(0) @map("withholding_amount") @db.Decimal(18,4)
+  withholdingSnapshot Json? @map("withholding_snapshot")
+  originalLineId String? @map("original_line_id") @db.Uuid
+  originalLine BillLine? @relation("BillLineNotes",fields:[originalLineId,companyId],references:[id,companyId],onDelete:Restrict)
+  noteLines BillLine[] @relation("BillLineNotes")
   eventId String? @map("event_id") @db.Uuid
   outletId String? @map("outlet_id") @db.Uuid
   departmentId String? @map("department_id") @db.Uuid

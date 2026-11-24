@@ -67,6 +67,7 @@ export async function correctDemoChart(actor:Actor,companyCode:string,targetStar
         // Allocated links and their non-posting parents remain permanent, even
         // during this legacy demo-only maintenance operation.
         if(before.counterpartyCompanyId||before.outletId||await tx.account.findFirst({where:{companyId:company.id,parentId:before.id,OR:[{counterpartyCompanyId:{not:null}},{outletId:{not:null}}]}}))continue;
+        if(await tx.tax.findFirst({where:{companyId:company.id,OR:[{outputAccountId:before.id},{inputAccountId:before.id}]}}))continue;
         const sums=await tx.journalLine.aggregate({where:{companyId:company.id,accountId:before.id,entry:{status:"POSTED"}},_sum:{debit:true,credit:true}});
         if(!new Prisma.Decimal(sums._sum.debit??"0").eq(sums._sum.credit??"0"))
           throw new AppError(409,"Chart correction refused: old account balance is not zero");
