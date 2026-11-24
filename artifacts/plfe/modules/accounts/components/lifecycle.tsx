@@ -9,7 +9,7 @@ import { useAction, useAdmin } from "@/modules/core/components/shared";
 import { A, ApprovalNotice, RESOURCE_OF, perm, useOp } from "./util";
 
 /** Draft: edit / post / delete. Posted: request cancellation. Every op refreshes the record. */
-export function useLifecycle(resource: string, rec: RecordData | null, opts: { onEdit?: () => void; onChanged: () => void; onDeleted: () => void; canPost?: boolean; postBlock?: string | null; editable?: boolean }) {
+export function useLifecycle(resource: string, rec: RecordData | null, opts: { onEdit?: () => void; onChanged: () => void; onDeleted: () => void; canPost?: boolean; postBlock?: string | null; editable?: boolean; canCancel?: boolean }) {
   const { can } = useAdmin();
   const op = useOp();
   const { ask, dialog } = useAction();
@@ -36,7 +36,7 @@ export function useLifecycle(resource: string, rec: RecordData | null, opts: { o
           onConfirm: async () => { await op(resource, { operation: "delete", id: rec.id }, L.common.deleted); opts.onDeleted(); },
         })}><Trash2 />{A.a.del}</Button>
       )}
-      {posted && can(perm(resource, "cancel")) && (
+      {posted && opts.canCancel !== false && can(perm(resource, "cancel")) && (
         <Button size="sm" variant="outline" className="text-destructive" data-testid="button-cancel-doc" onClick={() => ask({
           title: A.a.cancel, description: A.a.cancelBody, input: { label: A.a.cancelNote, type: "note", required: true }, confirmLabel: A.a.cancel, danger: true,
           onConfirm: async (note: string) => { if (note.trim().length < 3) throw new Error(A.a.noteMin); await run({ operation: "cancel", id: rec.id, note: note.trim() }, A.a.approvalSent); },

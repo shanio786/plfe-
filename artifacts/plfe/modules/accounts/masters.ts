@@ -1,13 +1,11 @@
 import {AppError} from "@/lib/errors";
 import {audit} from "@/lib/audit";
-import {postEntry} from "@/lib/posting";
 import {accountSchema,departmentSchema,journalSchema,partySchema,settingsSchema} from "./schema";
 import {authorize,delegate,meta,record,resourceConfig,settings,type Tx} from "./model";
 import {decimal,zero} from "./balances";
 import type {Actor} from "@/modules/core/model";
-import {accountingToday} from "./time";
 
-async function checkAccount(tx:Tx,companyId:string,data:any,id?:string) {
+export async function checkAccount(tx:Tx,companyId:string,data:any,id?:string,planned=new Map<string,any>()) {
   if((data.isCash||data.isBank)&&(data.type!=="ASSET"||data.isGroup)||data.isCash&&data.isBank)
     throw new AppError(400,"Cash/bank accounts must be separate non-group asset accounts");
   if(data.defaultTaxId) {
@@ -20,8 +18,11 @@ async function checkAccount(tx:Tx,companyId:string,data:any,id?:string) {
   while(parentId) {
     if(seen.has(parentId))throw new AppError(400,"Account tree cannot contain a cycle");
     seen.add(parentId);
-    const parent=await record(tx,"chart",companyId,parentId);
+    const parent=planned.get(parentId)??await record(tx,"chart",companyId,parentId);
     if(!parent.isGroup||parent.type!==data.type||!parent.active)throw new AppError(400,"Parent must be an active group of the same account type");
+    if(!id&&(parent.code==="1600"||parent.code==="2500"||
+      await tx.account.findFirst({where:{companyId,parentId:parent.id,counterpartyCompanyId:{not:null}}})))
+      throw new AppError(400,"Due-from/to children require explicit reciprocal company links and are provisioned only by company setup, not manual chart extensions");
     parentId=parent.parentId;
   }
   if(id&&await tx.journalLine.findFirst({where:{companyId,accountId:id,entry:{companyId,status:"POSTED"}}})) {
@@ -33,6 +34,13 @@ async function checkAccount(tx:Tx,companyId:string,data:any,id?:string) {
     const before=await record(tx,"chart",companyId,id);
     if(["type","isGroup","isCash","isBank"].some(key=>before[key]!==data[key]))
       throw new AppError(409,"An account referenced by a tax version must retain its financial classification");
+  }
+  if(id) {
+    const before=await record(tx,"chart",companyId,id);
+    const managed=before.isGroup&&(["1100","1600","1700","2500"].includes(before.code)||
+      await tx.account.findFirst({where:{companyId,parentId:id,OR:[{counterpartyCompanyId:{not:null}},{outletId:{not:null}}]}}));
+    if(managed&&(before.code!==data.code||before.type!==data.type||!data.isGroup))
+      throw new AppError(409,"A managed cash/inventory/group parent must retain its code, type and non-posting meaning for future company/location setup");
   }
 }
 async function protectReferences(tx:Tx,companyId:string,resource:string,id:string,archiving:boolean) {
@@ -78,6 +86,8 @@ export async function saveMaster(tx:Tx,actor:Actor,companyId:string,resource:str
   }
   else if(resource==="parties") {
     data=partySchema.parse(raw);
+    if(!before&&decimal(data.openingBalance).gt("0"))
+      throw new AppError(400,"Opening balances are posted only through guided opening. Imports stage amounts for deliberate review; creating a party never posts financial documents");
     if(before)for(const key of ["strn","taxTreatment","taxExemptionReason","taxCertificateRef"])
       if(raw[key]===undefined)data[key]=before[key];
     if(before&&raw.linkedCompanyId===undefined)data.linkedCompanyId=before.linkedCompanyId;
@@ -105,16 +115,6 @@ export async function saveMaster(tx:Tx,actor:Actor,companyId:string,resource:str
   else throw new AppError(400,"Unknown accounting master");
   if(before&&!data.active)await protectReferences(tx,companyId,resource,before.id,false);
   let after=before?await model.update({where:{id:before.id,companyId},data:{...data,updatedBy:actor.id}}):await model.create({data:{...data,companyId,...meta(actor)}});
-  if(resource==="parties"&&!before&&after.openingBalance.gt("0")) {
-    await authorize(tx,actor,companyId,"accounts.entry.post");
-    const s=await settings(tx,companyId),receivable=after.openingSide==="RECEIVABLE",amount=after.openingBalance;
-    const date=accountingToday();
-    const entry=await postEntry(tx,actor,companyId,{journalId:s.generalJournalId,date,kind:"OPENING",sourceType:"OPENING",sourceId:after.id,narration:`Opening balance: ${after.code}`,lines:[
-      {accountId:receivable?s.receivableAccountId:s.payableAccountId,partyId:after.id,debit:receivable?amount:zero(),credit:receivable?zero():amount},
-      {accountId:s.openingEquityAccountId,debit:receivable?zero():amount,credit:receivable?amount:zero()}
-    ]},"accounts.entry.post");
-    after=await model.update({where:{id:after.id,companyId},data:{openingEntryId:entry.id}});
-  }
   await audit(tx,actor,companyId,before?"UPDATE":"CREATE",cfg.table,after.id,before,after);
   return after;
 }
@@ -132,6 +132,9 @@ export async function saveSettings(tx:Tx,actor:Actor,companyId:string,raw:any) {
     if(j.type!==type||!j.active)throw new AppError(400,"Choose an active journal of the correct type");
   }
   const before=await tx.accountingSettings.findFirst({where:{companyId,deletedAt:null}});
+  if(before&&before.openingEquityAccountId!==data.openingEquityAccountId&&(
+    await tx.openingRecord.findFirst({where:{companyId}})||(await tx.company.findUniqueOrThrow({where:{id:companyId}})).booksOpenedAt))
+    throw new AppError(409,"Opening equity mapping is permanent once an opening is captured or books are declared open");
   if(before)for(const key of ["receivableAccountId","payableAccountId"] as const) {
     if(before[key]!==data[key]) {
       const balance=await tx.journalLine.aggregate({where:{companyId,accountId:before[key],deletedAt:null,entry:{companyId,status:"POSTED",deletedAt:null}},_sum:{debit:true,credit:true}});

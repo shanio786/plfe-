@@ -55,7 +55,7 @@ test("Seventh screen service company receives complete Events setup and permanen
   const company=await db.company.findFirstOrThrow({where:{code:raw.code}});
   assert.equal(await db.role.count({where:{companyId:company.id}}),11);
   assert.equal(await db.approvalRule.count({where:{companyId:company.id}}),5);
-  assert.equal(await db.numberSeries.count({where:{companyId:company.id}}),13);
+  assert.equal(await db.numberSeries.count({where:{companyId:company.id}}),19);
   assert.equal(await db.period.count({where:{companyId:company.id}}),12);
   assert.equal(await db.branch.count({where:{companyId:company.id,code:"HQ"}}),1);
   assert.equal(await db.accountingSettings.count({where:{companyId:company.id}}),1);

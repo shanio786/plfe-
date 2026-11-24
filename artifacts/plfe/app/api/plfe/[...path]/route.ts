@@ -16,6 +16,9 @@ import {getAccountRecord,listAccounts} from "@/modules/accounts/queries";
 import {accountsOverview,accountsReport} from "@/modules/accounts/reports";
 import {saveAccountRecord} from "@/modules/accounts/service";
 import {enrollmentStatus,enrollOwner} from "@/lib/enrollment";
+import {saveOpening,requestOpeningReversal} from "@/modules/accounts/opening";
+import {openingOverview} from "@/modules/accounts/opening-state";
+import {importInfo,previewImport,confirmImport} from "@/modules/accounts/imports";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 function json(body:unknown,status=200){return NextResponse.json(redact(body),{status,headers:{"Cache-Control":"no-store"}});}
@@ -61,6 +64,27 @@ async function handle(req:NextRequest,context:{params:Promise<{path:string[]}>})
     const [company,resource,id]=path;
     if(resource==="accounts") {
       const section=path[2]??"overview",recordId=path[3];
+      if(section==="opening") {
+        if(req.method==="GET")return json(await openingOverview(actor,company));
+        if(req.method==="POST")return json(await saveOpening(actor,company,await req.json()));
+        throw new AppError(405,"Method not allowed");
+      }
+      if(section==="opening-documents"&&req.method==="POST")
+        return json(await requestOpeningReversal(actor,company,await req.json()));
+      if(section==="imports") {
+        if(req.method==="GET")return json(await importInfo(actor,company));
+        if(req.method!=="POST")throw new AppError(405,"Method not allowed");
+        if(req.headers.get("content-type")?.startsWith("multipart/form-data")) {
+          const form=await boundedForm(req);
+          for(const key of form.keys())if(!["operation","kind","file"].includes(key)||form.getAll(key).length!==1)
+            throw new AppError(400,"Submit exactly one file, kind and preview operation");
+          if(form.get("operation")!=="preview")throw new AppError(400,"Review an import preview before confirmation");
+          const file=form.get("file");
+          if(!file||typeof file==="string")throw new AppError(400,"Select a CSV/XLSX file");
+          return json(await previewImport(actor,company,form.get("kind"),file));
+        }
+        return json(await confirmImport(actor,company,await req.json()));
+      }
       if(req.method==="POST")return json(await saveAccountRecord(actor,company,section,await req.json()));
       if(req.method!=="GET")throw new AppError(405,"Method not allowed");
       const params=Object.fromEntries(req.nextUrl.searchParams),exporting=params.export==="xlsx";

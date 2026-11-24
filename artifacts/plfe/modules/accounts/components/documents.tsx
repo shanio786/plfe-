@@ -6,7 +6,7 @@ import type { RecordData } from "@/lib/client";
 import { L } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/modules/core/components/data-table";
-import { useAdmin } from "@/modules/core/components/shared";
+import { Tag, useAdmin } from "@/modules/core/components/shared";
 import { date } from "@/modules/core/components/format";
 import { A, Amt, OutletTag, SelectionNote, SnapEvidence, snapOf, DocStatus, KindTag, Money, PickSelect, Section, SettleTag, col, dec, perm, label, useAll, useDeepId , numCol } from "./util";
 import { Attachments, DetailDialog, Facts, useRecord } from "./detail";
@@ -14,6 +14,8 @@ import { DocEditor, docDefaults, type DocRes } from "./doc-editor";
 import { EntryLinks, useLifecycle } from "./lifecycle";
 
 const statusOpts = ["DRAFT", "POSTED", "CANCELLED"].map((value) => ({ value, label: A.status[value] }));
+
+const isOpening = (r?: RecordData | null) => !!r && !!(r.openingRecordId || r.openingRecord);
 
 export function DocumentsSection({ res }: { res: DocRes }) {
   const { company, can } = useAdmin();
@@ -48,7 +50,7 @@ export function DocumentsSection({ res }: { res: DocRes }) {
         columns={[
           col("number", (r) => <span className="font-mono text-xs font-semibold">{r.number ?? <span className="text-muted-foreground">{A.status.DRAFT}</span>}</span>, true),
           col("date", (r) => <span className="font-mono text-xs">{date(r.date)}</span>, true),
-          col("kind", (r) => <KindTag k={r.kind} />),
+          col("kind", (r) => <span className="inline-flex gap-1"><KindTag k={r.kind} />{isOpening(r) && <Tag tone="brand">{A.op.badge}</Tag>}</span>),
           col("party", (r) => <span className="font-medium">{r.party?.name ?? "—"}</span>),
           col("dueDate", (r) => <span className="font-mono text-xs text-muted-foreground">{date(r.dueDate)}</span>),
           numCol("total", (r) => r.total, true),
@@ -72,20 +74,29 @@ function DocDetail({ res, id, version, docType, onClose, onChanged, onEdit, onNo
 }) {
   const { company, can } = useAdmin();
   const { rec, error, retry } = useRecord(res, id, version);
-  const life = useLifecycle(res, rec, { onEdit: () => rec && onEdit(rec), onChanged, onDeleted: () => { onClose(); onChanged(); } });
+  const life = useLifecycle(res, rec, { onEdit: () => rec && onEdit(rec), onChanged, canCancel: !isOpening(rec) || can("accounts.opening.manage"), onDeleted: () => { onClose(); onChanged(); } });
   const isNote = rec && String(rec.kind).includes("NOTE");
-  const canNote = rec && !isNote && rec.status === "POSTED" && can(perm(res, "create"));
+  const opening = isOpening(rec);
+  // Opening originals: historical tax unknown, so no credit/debit notes; normal cancellation only.
+  const canNote = rec && !isNote && !opening && rec.status === "POSTED" && can(perm(res, "create"));
   return (
     <>
       <DetailDialog open={!!id} onClose={onClose} error={error} retry={retry} loading={!rec}
         title={rec ? <span className="flex items-center gap-2"><span className="font-mono">{rec.number ?? A.status.DRAFT}</span><span className="text-muted-foreground">·</span>{rec.party?.name}</span> : L.common.loading}
-        meta={rec && <><KindTag k={rec.kind} /><DocStatus s={rec.status} />{rec.status === "POSTED" && !isNote && <SettleTag s={rec.settlementStatus} />}{rec.status !== "DRAFT" && <span className="text-muted-foreground">{A.a.readOnly}</span>}</>}
+        meta={rec && <><KindTag k={rec.kind} />{opening && <Tag tone="brand">{A.op.badge}</Tag>}<DocStatus s={rec.status} />{rec.status === "POSTED" && !isNote && <SettleTag s={rec.settlementStatus} />}{rec.status !== "DRAFT" && <span className="text-muted-foreground">{A.a.readOnly}</span>}</>}
         actions={rec && <>{life.buttons}{canNote && <Button size="sm" variant="outline" onClick={() => onNote(rec)} data-testid="button-raise-note"><FilePlus2 />{res === "invoices" ? A.a.creditNote : A.a.debitNote}</Button>}</>}>
         {rec && (
           <>
             {life.notice}
+            {opening && (
+              <div className="rounded-md border px-3 py-2 text-xs" data-testid="text-opening-document">
+                <p className="font-medium">{A.op.docTitle}</p>
+                <p className="text-muted-foreground">{A.op.docBody}</p>
+                <p className="mt-1 font-mono">{A.op.origRef}: {rec.openingRecord?.originalReference ?? "—"} · {A.op.recordNo}: {rec.openingRecord?.number ?? "—"} · {A.op.ledgerDate}: {date(rec.openingRecord?.date ?? rec.date)}</p>
+              </div>
+            )}
             <Facts items={[
-              [A.f.date, <span key="d" className="font-mono">{date(rec.date)}</span>], [A.f.dueDate, <span key="dd" className="font-mono">{date(rec.dueDate)}</span>],
+              [opening ? A.op.originalDate : A.f.date, <span key="d" className="font-mono">{date(rec.date)}</span>], [A.f.dueDate, <span key="dd" className="font-mono">{date(rec.dueDate)}</span>],
               [A.f.party, rec.party ? <Link key="p" href={`/${company}/accounts/party-ledger?partyId=${rec.partyId}`} className="text-primary hover:underline">{label(rec.party)}</Link> : "—"],
               [A.f.original, rec.originalId ? <Link key="o" href={`/${company}/accounts/${res}?id=${rec.originalId}`} className="font-mono text-primary hover:underline">{rec.original?.number ?? rec.originalId.slice(0, 8)}</Link> : "—"],
               [A.t.subtotal, <Money key="st" v={rec.subtotal} />], [A.t.taxTotal, <Money key="tt" v={rec.taxTotal} />], [A.t.gross, <Money key="t" v={rec.total} />],

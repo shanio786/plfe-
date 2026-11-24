@@ -1,5 +1,67 @@
 # PLFE progress
 
+## Part 4 — Open the books from zero — 2026-11-24
+
+Implemented and automatically verified. Part 5, the final combined check run
+and the final signed-in financial browser pass remain outstanding; the new
+authenticated screens are not represented as browser-accepted yet.
+
+- Company go-live defaults to the first provisioned financial period and can
+  be configured by an authorized Owner/Accountant only before opening capture
+  or posting. It must be the first day of an open period. Service and database
+  guards reject ordinary documents/direct journals before go-live and prevent
+  invalidating earlier drafts or moving an established go-live.
+- Added the six ordered opening screens: cash, bank statements, original
+  receivables, original payables, retail stock by location, then the remaining
+  asset/liability/equity journal. Cash and bank accounts require explicit
+  capture, including actual zero; bank overdrafts are supported. No financial
+  opening amount is seeded. Events stock requires a written not-applicable
+  review; retail requires every active location to be reviewed.
+- All opening financial legs have opening-equity far sides. The screen shows
+  exact reconciliation and named unmatched balances. Written reviews bind
+  source/configuration evidence and earlier reviews. An explicit written
+  reopening invalidates later reviews without editing posted records.
+- Opening invoices/bills retain actual original references/dates/due dates,
+  including overdue balances; their ledger date is go-live. They have their
+  own number series and immutable linked sources. These are historical net
+  outstanding amounts, not new taxable supplies: no tax, legal zero rate,
+  exemption or certificate is invented. Tax notes cannot reconstruct unknown
+  historical tax; corrections use independently approved normal reversals.
+- Declaration requires six current reviews, no unposted staged amounts or
+  pending opening reversals, valid control accounts and exactly zero equity.
+  It atomically locks the day before go-live, permanently closes guided writes,
+  and rejects concurrent declaration. A pre-declaration reversal uses go-live
+  so reconciliation is correct; later reversals use normal open-date controls.
+- Added current unpaid-invoice/bill ageing and export from actual original/due
+  dates. It explicitly does not reconstruct historical allocations or claim
+  unallocated advances/credits as unpaid invoices; those remain in statements.
+- CSV/XLSX party import includes province, tax registrations and opening amounts;
+  chart extensions preserve hierarchy/type/group rules, including managed
+  company/location parents. All rows are validated before creating a review.
+  Formula cells, unsafe headers/control characters, macros/external links,
+  oversized containers and misleading ZIP expansion sizes are rejected.
+  XLSX numeric money is read from original XML digits, not JS floating point.
+- Confirmation is user/company/token/expiry/context-bound, explicit, single-use
+  and atomic. JSON evidence hashes are canonical across PostgreSQL JSONB key
+  ordering. A late rejection rolls back all created masters/staged amounts.
+  Imports never post financial documents; nonzero party amounts are queued for
+  deliberate opening. The legacy automatic party-opening path is disabled.
+- Verification: the full 69-check Accounts run passed 68 and exposed one old
+  expectation of 13 number series, now 19 with six opening series. After that
+  fixture-only correction, its entire six-check suite passed on a fresh
+  database. All eleven new opening/import checks passed, including a final
+  focused run after import validation changes. Foundation 24/24, provisioning
+  4/4 and the production build passed. No protection was disabled for fixtures.
+- Applied the schema only to this application's empty database. Counts remain
+  zero users, companies, journal entries, opening records and import previews.
+  Private first Owner enrollment remains the operator's action; no password,
+  identity, legal tax rate or business amount was invented.
+- Application and worker startup were clean. Health and the correct public
+  enrollment-status route passed; enrollment remains available/configured.
+  The public sign-in screenshot rendered. PostgreSQL test guard rejections are
+  expected negative-test evidence, not application/worker startup failures.
+- Commit/push verification will be recorded here before starting Part 5.
+
 ## Part 3 — Payment controls — 2026-11-24
 
 Implemented and automatically verified. Parts 4–5, the final combined check run

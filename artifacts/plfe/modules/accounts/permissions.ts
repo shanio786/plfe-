@@ -6,6 +6,7 @@ export const accountsPermissions=[
   "accounts.payment.allocate","accounts.settings.read","accounts.settings.update",
   "accounts.outlet.read","accounts.outlet.create","accounts.outlet.update",
   "accounts.tax.read","accounts.tax.create","accounts.tax.update",
+  "accounts.opening.manage","accounts.import.create",
   "accounts.report.read","accounts.approval.approve"
 ];
 export const accountsReadPermissions=[

@@ -26,6 +26,14 @@ model Company {
   outlets Outlet[]
   taxes Tax[]
   lockDate         DateTime? @map("lock_date") @db.Date
+  goLiveDate       DateTime? @map("go_live_date") @db.Date
+  booksOpenedAt    DateTime? @map("books_opened_at") @db.Timestamptz(6)
+  booksOpenedBy    String? @map("books_opened_by") @db.Uuid
+  booksOpenEvidence Json? @map("books_open_evidence")
+  openingRecords OpeningRecord[]
+  openingReviews OpeningReview[]
+  openingStagedAmounts OpeningStagedAmount[]
+  importPreviews ImportPreview[]
   active           Boolean   @default(true)
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy        String?   @map("created_by") @db.Uuid
@@ -80,6 +88,7 @@ model EnrollmentGuard {
 model Outlet {
   id String @id @default(uuid()) @db.Uuid
   companyId String @map("company_id") @db.Uuid
+  openingRecords OpeningRecord[]
   code String
   name String
   type String
@@ -463,6 +472,7 @@ model Tax {
 model Account {
   id String @id @default(uuid()) @db.Uuid
   companyId String @map("company_id") @db.Uuid
+  openingRecords OpeningRecord[]
   code String
   name String
   type String
@@ -502,6 +512,8 @@ model Account {
 model Party {
   id String @id @default(uuid()) @db.Uuid
   companyId String @map("company_id") @db.Uuid
+  openingRecords OpeningRecord[]
+  openingStagedAmounts OpeningStagedAmount[]
   code String
   name String
   companyName String? @map("company_name")
@@ -570,6 +582,8 @@ model Journal {
 model JournalEntry {
   id String @id @default(uuid()) @db.Uuid
   companyId String @map("company_id") @db.Uuid
+  openingSources OpeningRecord[] @relation("OpeningSourceEntry")
+  openingReversals OpeningRecord[] @relation("OpeningReversalEntry")
   journalId String @map("journal_id") @db.Uuid
   fiscalYearId String? @map("fiscal_year_id") @db.Uuid
   number String?
@@ -643,6 +657,8 @@ model JournalLine {
 model Invoice {
   id String @id @default(uuid()) @db.Uuid
   companyId String @map("company_id") @db.Uuid
+  openingRecordId String? @map("opening_record_id") @db.Uuid
+  openingRecord OpeningRecord? @relation("OpeningReceivable",fields:[openingRecordId,companyId],references:[id,companyId],onDelete:Restrict)
   partyId String @map("party_id") @db.Uuid
   kind String @default("INVOICE")
   originalId String? @map("original_id") @db.Uuid
@@ -730,6 +746,8 @@ model InvoiceLine {
 model Bill {
   id String @id @default(uuid()) @db.Uuid
   companyId String @map("company_id") @db.Uuid
+  openingRecordId String? @map("opening_record_id") @db.Uuid
+  openingRecord OpeningRecord? @relation("OpeningPayable",fields:[openingRecordId,companyId],references:[id,companyId],onDelete:Restrict)
   partyId String @map("party_id") @db.Uuid
   kind String @default("BILL")
   originalId String? @map("original_id") @db.Uuid
@@ -905,4 +923,102 @@ model AccountingSettings {
   bankJournal Journal @relation("BankJournal",fields:[bankJournalId,companyId],references:[id,companyId],onDelete:Restrict)
   @@unique([id,companyId])
   @@map("accounting_settings")
+}
+
+model OpeningRecord {
+  id String @id @default(uuid()) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  stage String
+  status String @default("DRAFT")
+  number String?
+  date DateTime @db.Date
+  amount Decimal @db.Decimal(18,4)
+  accountId String? @map("account_id") @db.Uuid
+  partyId String? @map("party_id") @db.Uuid
+  outletId String? @map("outlet_id") @db.Uuid
+  originalReference String? @map("original_reference")
+  originalDate DateTime? @map("original_date") @db.Date
+  dueDate DateTime? @map("due_date") @db.Date
+  stockCode String? @map("stock_code")
+  description String?
+  quantity Decimal? @db.Decimal(18,4)
+  unitCost Decimal? @map("unit_cost") @db.Decimal(18,4)
+  details Json
+  requestKey String @map("request_key") @db.Uuid
+  payloadHash String @map("payload_hash")
+  entryId String? @map("entry_id") @db.Uuid
+  reversalEntryId String? @map("reversal_entry_id") @db.Uuid
+  cancelReason String? @map("cancel_reason")
+  stagedImportId String? @map("staged_import_id") @db.Uuid
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String @map("updated_by") @db.Uuid
+  company Company @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  account Account? @relation(fields:[accountId,companyId],references:[id,companyId],onDelete:Restrict)
+  party Party? @relation(fields:[partyId,companyId],references:[id,companyId],onDelete:Restrict)
+  outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
+  entry JournalEntry? @relation("OpeningSourceEntry",fields:[entryId,companyId],references:[id,companyId],onDelete:Restrict)
+  reversalEntry JournalEntry? @relation("OpeningReversalEntry",fields:[reversalEntryId,companyId],references:[id,companyId],onDelete:Restrict)
+  receivables Invoice[] @relation("OpeningReceivable")
+  payables Bill[] @relation("OpeningPayable")
+  stagedImport OpeningStagedAmount? @relation(fields:[stagedImportId,companyId],references:[id,companyId],onDelete:Restrict)
+  @@unique([id,companyId])
+  @@unique([companyId,requestKey])
+  @@index([companyId,stage,status])
+  @@map("opening_records")
+}
+model OpeningReview {
+  id String @id @default(uuid()) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  stage String
+  reason String
+  fingerprint String
+  evidence Json
+  reviewedAt DateTime @default(now()) @map("reviewed_at") @db.Timestamptz(6)
+  reviewedBy String @map("reviewed_by") @db.Uuid
+  company Company @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  @@unique([companyId,stage])
+  @@map("opening_reviews")
+}
+model OpeningStagedAmount {
+  id String @id @default(uuid()) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  partyId String @map("party_id") @db.Uuid
+  previewId String @map("preview_id") @db.Uuid
+  side String
+  amount Decimal @db.Decimal(18,4)
+  status String @default("STAGED")
+  cancelReason String? @map("cancel_reason")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String @map("created_by") @db.Uuid
+  company Company @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  party Party @relation(fields:[partyId,companyId],references:[id,companyId],onDelete:Restrict)
+  preview ImportPreview @relation(fields:[previewId,companyId],references:[id,companyId],onDelete:Restrict)
+  records OpeningRecord[]
+  @@unique([id,companyId])
+  @@index([companyId,status,side])
+  @@map("opening_staged_amounts")
+}
+model ImportPreview {
+  id String @id @default(uuid()) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  kind String
+  filename String
+  payload Json
+  payloadHash String @map("payload_hash")
+  sourceHash String @map("source_hash")
+  contextHash String @map("context_hash")
+  tokenHash String @map("token_hash")
+  createdBy String @map("created_by") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  confirmedAt DateTime? @map("confirmed_at") @db.Timestamptz(6)
+  result Json?
+  company Company @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  stagedAmounts OpeningStagedAmount[]
+  @@unique([id,companyId])
+  @@index([companyId,createdBy,expiresAt])
+  @@map("import_previews")
 }

@@ -10,6 +10,7 @@ import {dateOnly,record,type Tx} from "./model";
 import {zero} from "./balances";
 import {accountingToday} from "./time";
 import {taxSummary} from "./tax-report";
+import {partyAgeing} from "./ageing";
 const reportPageSchema=listSchema.extend({pageSize:z.coerce.number().int().min(1).max(1000).default(100)});
 
 async function conditions(tx:Tx,companyId:string,raw:Record<string,string>) {
@@ -28,10 +29,11 @@ async function conditions(tx:Tx,companyId:string,raw:Record<string,string>) {
   return {from,to,filter};
 }
 export async function accountsReport(actor:Actor,code:string,report:string,raw:Record<string,string>,exporting=false) {
-  if(!["trial-balance","ledger","party-ledger","tax-summary"].includes(report))throw new AppError(404,"Unknown accounting report");
+  if(!["trial-balance","ledger","party-ledger","tax-summary","party-ageing"].includes(report))throw new AppError(404,"Unknown accounting report");
   const p=reportPageSchema.parse(raw);
   return db.$transaction(async tx=>{
     const company=await companyScope(tx,actor,code,"accounts.report.read"),companyId=company.id;
+    if(report==="party-ageing")return partyAgeing(tx,companyId,raw,p,exporting);
     if(report==="party-ledger"&&!raw.partyId)throw new AppError(400,"Select a party for its ledger");
     const {from,to,filter}=await conditions(tx,companyId,raw);
     if(report==="tax-summary")return taxSummary(tx,companyId,from,to,p,exporting,raw);

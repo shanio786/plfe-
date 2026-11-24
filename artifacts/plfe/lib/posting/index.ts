@@ -6,12 +6,14 @@ import {money} from "@/lib/money";
 import {nextDocumentNumber} from "@/lib/numbering";
 import type {Actor} from "@/modules/core/model";
 import {authorize,dateOnly,dimensionCheck,outletAccountCheck,ledgerLock,meta,type Tx} from "@/modules/accounts/model";
+import {assertGoLiveDate} from "@/modules/accounts/book-dates";
 
 export type PostingLine={accountId:string;debit:string|Prisma.Decimal;credit:string|Prisma.Decimal;partyId?:string|null;departmentId?:string|null;eventId?:string|null;outletId?:string|null;memo?:string|null};
 type PostingInput={id?:string;journalId:string;date:string|Date;narration?:string|null;kind:string;sourceType:string;sourceId:string;reversalOfId?:string|null;lines:PostingLine[]};
 const zero=()=>new Prisma.Decimal("0.0000");
 
 export async function openFiscal(tx:Tx,companyId:string,date:Date) {
+  await assertGoLiveDate(tx,companyId,date);
   const company=await tx.company.findFirst({where:{id:companyId,deletedAt:null}});
   const year=await tx.fiscalYear.findFirst({where:{companyId,deletedAt:null,isClosed:false,startDate:{lte:date},endDate:{gte:date}}});
   const period=year&&await tx.period.findFirst({where:{companyId,fiscalYearId:year.id,deletedAt:null,isClosed:false,startDate:{lte:date},endDate:{gte:date}}});
@@ -49,6 +51,7 @@ async function validateLines(tx:Tx,companyId:string,lines:PostingLine[],requireB
 export async function saveJournalDraft(tx:Tx,actor:Actor,companyId:string,input:PostingInput,permission:string) {
   await authorize(tx,actor,companyId,permission);
   await ledgerLock(tx,companyId);
+  await assertGoLiveDate(tx,companyId,input.date);
   const id=input.id??(input.sourceType==="ENTRY"?input.sourceId:randomUUID());
   const before=input.id?await tx.journalEntry.findFirst({where:{id,companyId,deletedAt:null},include:{lines:true}}):null;
   if(input.id&&!before) throw new AppError(404,"Journal entry not found");

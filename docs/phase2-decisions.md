@@ -1,5 +1,39 @@
 # Approved Phase 2 scope
 
+## Fresh-start Part 4 — guided opening and imports
+
+- Go-live is a period boundary. Existing financial history/captures pin it;
+  ordinary save/post paths cannot precede it. The first provisioned current
+  fiscal period is the configurable initial date, not an invented balance.
+- Opening is capability-controlled (initially Owner/Accountant, not Admin).
+  Ordered written reviews cover cash, bank, receivables, payables, stock and
+  the remaining opening journal. Zero cash/bank captures are explicit numbered
+  evidence without illegal zero ledger lines. No opening value is seeded.
+- Historical opening receivables/payables preserve original ageing dates and
+  post their net outstanding balance at go-live against opening equity. They
+  do not pretend to reconstruct the original tax invoice or a legal zero rate.
+  Their source/header/entry links and history are immutable. Unknown historical
+  tax cannot be credited through tax notes; use approved reversal controls.
+- Opening reversals require independent cancellation approval. Before books
+  open, reversal date is go-live; afterwards normal current/open-date controls
+  apply. Originals, reversals, evidence and sequence counters remain.
+- Declaration is one-time and serialized with posting, requires exact zero
+  opening equity and current reviews, and locks go-live minus one day. Changing
+  relevant evidence invalidates review chains. A written review reopening is
+  not permission to edit posted sources.
+- Ageing covers current unpaid invoices/bills, including historical opening
+  dates. It is not a historical-allocation reconstruction or a reconciliation
+  of unallocated advances/credits, which remain in party statements.
+- Import files are ephemeral. Only normalized preview rows and source digests
+  are retained. Bounded ZIP inflation precedes workbook parsing; no formulas,
+  macros or external workbook relationships are accepted. Raw workbook numeric
+  lexemes preserve decimal digits independently of ExcelJS floating values.
+- Preview confirmation binds actor/company/canonical payload/current master
+  context and expires after fifteen minutes. Validate all rows again before
+  one atomic master import. Party opening amounts become a separately posted
+  queue, never legacy automatic journals. Managed group/location parent meaning
+  is retained and reciprocal company children cannot be manually imported.
+
 ## Fresh-start Part 3 — payment controls
 
 - The duplicate window compares company/party/exact decimal across both

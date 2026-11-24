@@ -206,7 +206,7 @@ export function DocEditor({ res, open, onClose, editId, defaults, onSaved }: {
                 <Label>{A.f.original}</Label>
                 <Controller control={form.control} name="originalId" render={({ field }) => (
                   <PickSelect value={field.value} onChange={field.onChange} className="h-9" testId="select-original" placeholder={partyId ? (originals.loading ? L.common.loading : A.f.original) : A.a.pickParty}
-                    options={originals.rows.filter((o) => o.kind === origKind || !o.kind).map((o) => ({ value: o.id, label: `${o.number ?? o.id.slice(0, 8)} · ${fmtDate(o.date)} · ${money(o.netTotal ?? o.total)}` }))} />
+                    options={originals.rows.filter((o) => !o.openingRecordId && (o.kind === origKind || !o.kind)).map((o) => ({ value: o.id, label: `${o.number ?? o.id.slice(0, 8)} · ${fmtDate(o.date)} · ${money(o.netTotal ?? o.total)}` }))} />
                 )} />
                 {origState.loading && <p className="text-xs text-muted-foreground">{T.loadingOriginal}</p>}
                 {origState.error && <p className="text-xs text-destructive">{origState.error}</p>}

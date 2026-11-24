@@ -6,11 +6,12 @@ import {nextDocumentNumber} from "@/lib/numbering";
 import {openFiscal,postEntry,reverseEntry} from "@/lib/posting";
 import type {Actor} from "@/modules/core/model";
 import {billSchema,invoiceSchema,paymentSchema} from "./schema";
-import {dateOnly,delegate,dimensionCheck,outletAccountCheck,meta,record,resourceConfig,settings,type Tx} from "./model";
+import {authorize,dateOnly,delegate,dimensionCheck,outletAccountCheck,meta,record,resourceConfig,settings,type Tx} from "./model";
 import {applyAllocations,decimal,outstanding,positive,zero} from "./balances";
 import {accountingToday} from "./time";
 import {calculateTaxDocument,taxLineEvidence} from "./tax-calculation";
 import {paymentConsent,rejectSelfPayment} from "./payment-controls";
+import {assertGoLiveDate,openingReversalDate} from "./book-dates";
 
 function storedLine(line:any) {
   return {...line,taxSnapshot:line.taxSnapshot??Prisma.DbNull,
@@ -19,6 +20,7 @@ function storedLine(line:any) {
 }
 export async function previewDocument(tx:Tx,companyId:string,resource:"invoices"|"bills",raw:any) {
   const data=(resource==="invoices"?invoiceSchema:billSchema).parse(raw);
+  await assertGoLiveDate(tx,companyId,data.date);
   if(raw.id) {
     const before=await record(tx,resource,companyId,raw.id);
     if(before.status!=="DRAFT")throw new AppError(409,"Posted tax amounts are historical snapshots, not a preview to reprice");
@@ -54,6 +56,7 @@ export async function saveDocument(tx:Tx,actor:Actor,companyId:string,resource:"
     await audit(tx,actor,companyId,"CANCEL",cfg.table,before.id,before,after);return after;
   }
   const data=resource==="payments"?paymentSchema.parse(raw):resource==="invoices"?invoiceSchema.parse(raw):billSchema.parse(raw);
+  await assertGoLiveDate(tx,companyId,data.date);
   const party=await tx.party.findFirst({where:{id:data.partyId,companyId,active:true,deletedAt:null}});
   if(!party)throw new AppError(400,"Select an active party in this company");
   const receivable=resource==="invoices"||resource==="payments"&&(data as any).direction==="RECEIPT";
@@ -170,13 +173,19 @@ export async function postDocument(tx:Tx,actor:Actor,companyId:string,resource:"
 export async function cancelDocument(tx:Tx,actor:Actor,companyId:string,resource:"invoices"|"bills"|"payments",id:string,note:string,permission:string) {
   const before=await record(tx,resource,companyId,id);
   if(before.status!=="POSTED")throw new AppError(409,"Only an uncancelled posted document can be reversed");
+  if(before.openingRecordId)await authorize(tx,actor,companyId,"accounts.opening.manage");
   if(resource!=="payments") {
     const invoice=resource==="invoices";
     const allocated=await tx.paymentAllocation.findFirst({where:{companyId,deletedAt:null,...(invoice?{invoiceId:id}:{billId:id}),payment:{companyId,status:"POSTED",deletedAt:null}}});
     const notes=invoice?await tx.invoice.count({where:{companyId,originalId:id,status:"POSTED",deletedAt:null}}):await tx.bill.count({where:{companyId,originalId:id,status:"POSTED",deletedAt:null}});
     if(allocated||notes)throw new AppError(409,"Reallocate/cancel payments and reverse related notes before cancelling the original");
   }
-  const reversal=await reverseEntry(tx,actor,companyId,before.entryId,accountingToday(),note,permission);
+  const reversal=await reverseEntry(tx,actor,companyId,before.entryId,before.openingRecordId?await openingReversalDate(tx,companyId):accountingToday(),note,permission);
   const after=await delegate(tx,resource).update({where:{id,companyId},data:{status:"CANCELLED",reversalEntryId:reversal.id,updatedBy:actor.id,version:{increment:1}}});
+  if(before.openingRecordId) {
+    const opening=await tx.openingRecord.findUniqueOrThrow({where:{id:before.openingRecordId,companyId}});
+    const changed=await tx.openingRecord.update({where:{id:opening.id,companyId},data:{status:"CANCELLED",reversalEntryId:reversal.id,cancelReason:note,updatedBy:actor.id,version:{increment:1}}});
+    await audit(tx,actor,companyId,"CANCEL","opening_records",opening.id,opening,changed);
+  }
   await audit(tx,actor,companyId,"CANCEL",resourceConfig(resource).table,id,before,after);return after;
 }

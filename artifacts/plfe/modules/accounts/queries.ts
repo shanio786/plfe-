@@ -16,7 +16,7 @@ function includes(resource:string,detail=false,companyId?:string):any {
   if(resource==="taxes")return {outputAccount:true,inputAccount:true};
   if(resource==="parties")return {linkedCompany:{select:{id:true,code:true,name:true}}};
   if(resource==="outlets")return {accounts:{include:{parent:true},orderBy:{code:"asc"}}};
-  if(resource==="invoices"||resource==="bills")return {party:true,...(detail?{original:true,entry:true,reversalEntry:true,lines:{where,orderBy:{lineNo:"asc"},include:{account:true,department:true,outlet:true}},allocations:{where:{...where,payment:{companyId,status:"POSTED",deletedAt:null}},include:{payment:true}}}:{})};
+  if(resource==="invoices"||resource==="bills")return {party:true,openingRecord:{select:{id:true,stage:true,number:true,date:true,originalReference:true}},...(detail?{original:true,entry:true,reversalEntry:true,lines:{where,orderBy:{lineNo:"asc"},include:{account:true,department:true,outlet:true}},allocations:{where:{...where,payment:{companyId,status:"POSTED",deletedAt:null}},include:{payment:true}}}:{})};
   if(resource==="payments")return {party:true,settlementAccount:true,department:true,outlet:true,...(detail?{entry:true,reversalEntry:true,allocations:{where,include:{invoice:true,bill:true}}}:{})};
   if(resource==="entries")return {journal:true,reversals:{where:{companyId,deletedAt:null}},...(detail?{reversalOf:true,lines:{where,orderBy:{lineNo:"asc"},include:{account:true,party:true,department:true,outlet:true}}}:{})};
   if(resource==="settings")return {receivableAccount:true,payableAccount:true,openingEquityAccount:true,salesJournal:true,purchaseJournal:true,generalJournal:true,cashJournal:true,bankJournal:true};

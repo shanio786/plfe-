@@ -17,7 +17,7 @@ export const permissionCodes = [
 const readOnly = ["core.company.read","core.branch.read"];
 export const roleTemplates = [
   {name:"Owner",description:"Full company administration. Global ownership requires the Owner flag.",permissions:permissionCodes},
-  {name:"Admin",description:"Company users, roles and settings.",permissions:permissionCodes.filter(p=>p!=="core.company.create")},
+  {name:"Admin",description:"Company users, roles and settings.",permissions:permissionCodes.filter(p=>p!=="core.company.create"&&p!=="accounts.opening.manage")},
   {name:"Accountant",description:"Full Accounts except closing periods.",permissions:[...readOnly,...accountsPermissions,"core.approval.read","core.approval.create","core.attachment.read","core.attachment.create","core.attachment.delete"]},
   {name:"Viewer",description:"Read-only reports and their accounting source documents.",permissions:[...readOnly,...accountsReadPermissions]},
   ...["Event Manager","Sales Executive","HR","Showroom Manager","Cashier","Gate Staff","Web Editor"].map(name=>({

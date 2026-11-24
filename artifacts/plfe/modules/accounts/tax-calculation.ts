@@ -140,6 +140,7 @@ async function calculateNote(tx:Tx,companyId:string,resource:"invoices"|"bills",
   const invoice=resource==="invoices";
   if(!data.originalId)throw new AppError(400,"Select the posted original invoice/bill and its original lines");
   const original=await record(tx,resource,companyId,data.originalId);
+  if(original.openingRecordId)throw new AppError(409,"An opening balance has no newly recognized tax breakdown. Use its normal independently approved cancellation/reversal, not a credit/debit note that invents historical tax");
   if(original.status!=="POSTED"||original.partyId!==party.id||original.kind!==(invoice?"INVOICE":"BILL"))
     throw new AppError(400,"Select this party's posted original invoice/bill");
   const lines:any[]=[],seen=new Set<string>();

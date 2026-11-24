@@ -121,7 +121,7 @@ test("All six company setups are complete, calendar-correct and safe to rerun",a
     assert.equal(+periods[0].startDate,+years[0].startDate);
     assert.equal(+periods[11].endDate,+years[0].endDate);
     periods.slice(1).forEach((p,i)=>assert.equal(+p.startDate-+periods[i].endDate,86400000));
-    assert.equal(await db.numberSeries.count({where:{companyId:company.id,deletedAt:null}}),13);
+    assert.equal(await db.numberSeries.count({where:{companyId:company.id,deletedAt:null}}),19);
     assert.equal(await db.accountingSettings.count({where:{companyId:company.id}}),1);
     assert.equal(await db.invoice.count({where:{companyId:company.id,status:"DRAFT",deletedAt:null}}),0);
   }

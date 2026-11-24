@@ -52,9 +52,12 @@ export async function provisionCompany(tx:Prisma.TransactionClient,actor:Actor,i
   const membership=await tx.userCompanyRole.create({data:{companyId:c.id,userId:actor.id,roleId:role.id,createdBy:actor.id,updatedBy:actor.id}});
   await audit(tx,actor,c.id,"CREATE","user_company_roles",membership.id,null,membership);
   await initializeCompanyCalendar(tx,actor,c);
+  const firstPeriod=await tx.period.findFirstOrThrow({where:{companyId:c.id,deletedAt:null},orderBy:{startDate:"asc"}});
+  const configured=await tx.company.update({where:{id:c.id},data:{goLiveDate:firstPeriod.startDate,updatedBy:actor.id}});
+  await audit(tx,actor,c.id,"CONFIGURE_GO_LIVE_DEFAULT","companies",c.id,c,configured);
   await initializeAccounts(tx,actor,c.id,true);
   await linkCounterparties(tx,actor,c.id);
-  return c;
+  return configured;
 }
 
 async function checkGrants(tx:Prisma.TransactionClient,actor:Actor,companyId:string,codes:string[]) {

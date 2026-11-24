@@ -1,14 +1,13 @@
-import {randomUUID} from "node:crypto";
 import {z} from "zod";
 import {db} from "@/lib/db";
-import {audit,redact} from "@/lib/audit";
+import {audit} from "@/lib/audit";
 import {companyScope} from "@/lib/permissions";
 import {AppError} from "@/lib/errors";
 import {archiveJournalDraft,reverseEntry} from "@/lib/posting";
 import type {Actor} from "@/modules/core/model";
 import {allocationSchema} from "./schema";
 import {accountConfig,authorize,delegate,ledgerLock,record,resourceConfig,type Tx} from "./model";
-import {applyAllocations,zero} from "./balances";
+import {applyAllocations} from "./balances";
 import {saveMaster,saveSettings} from "./masters";
 import {cancelDocument,postDocument,previewDocument,saveDocument} from "./documents";
 import {postVoucher,saveVoucher} from "./vouchers";
@@ -16,32 +15,8 @@ import {accountingToday} from "./time";
 import {saveOutlet} from "./outlets";
 import {saveTax} from "./tax-master";
 import {preparePaymentPost} from "./payment-controls";
-
-async function approvalRule(tx:Tx,companyId:string,resource:string,operation:string,target:any) {
-  let amount=target.amount;
-  if(operation==="post") {
-    if(resource==="entries") {
-      const lines=await tx.journalLine.findMany({where:{companyId,entryId:target.id,deletedAt:null,account:{companyId,OR:[{isBank:true},{isCash:true}]}},select:{debit:true,credit:true}});
-      amount=lines.reduce((total,l)=>total.add(l.credit).sub(l.debit),zero());
-      if(!amount.gt("0"))return null;
-    } else if(resource!=="payments"||target.direction!=="PAYMENT")return null;
-  }
-  if(!["cancel","post"].includes(operation))return null;
-  const rule=await tx.approvalRule.findFirst({where:{companyId,docType:operation==="cancel"?"DOCUMENT":"PAYMENT",action:operation,active:true,deletedAt:null}});
-  if(!rule)return null;
-  return operation==="cancel"||!rule.thresholdAmount||amount.gt(rule.thresholdAmount)?rule:null;
-}
-async function requestApproval(tx:Tx,actor:Actor,companyId:string,resource:string,operation:string,target:any,note:string,rule:any) {
-  const docType=({invoices:"INVOICE",bills:"BILL",payments:"PAYMENT",entries:"ENTRY"} as Record<string,string>)[resource];
-  const existing=await tx.approval.findFirst({where:{companyId,docType,docId:target.id,action:operation,status:"PENDING",deletedAt:null}});
-  if(existing&&existing.targetVersion!==target.version)throw new AppError(409,"Withdraw the stale approval request and submit it again");
-  let approval=existing;
-  if(!approval) {
-    approval=await tx.approval.create({data:{companyId,ruleId:rule.id,docType,docId:target.id,action:operation,operationKey:randomUUID(),requestedBy:actor.id,requestNote:note,requestData:{resource,operation,note},targetVersion:target.version,ruleSnapshot:redact(rule),createdBy:actor.id,updatedBy:actor.id}});
-    await audit(tx,actor,companyId,"APPROVAL_REQUEST","approvals",approval.id,null,approval);
-  }
-  return {id:target.id,approvalRequested:true,approvalId:approval.id,message:"Independent approval requested. The document has not changed yet."};
-}
+import {approvalRule,requestApproval} from "./approvals";
+import {executeOpeningReversal} from "./opening";
 async function execute(tx:Tx,actor:Actor,companyId:string,resource:string,operation:string,id:string,note:string,permission:string) {
   if(resource==="entries") {
     const before=await record(tx,resource,companyId,id);
@@ -73,13 +48,16 @@ export async function saveAccountRecord(actor:Actor,companyCode:string,resource:
     if(["post","cancel"].includes(raw.operation)) {
       if(!raw.id)throw new AppError(400,"Save a draft first");
       let target=await record(tx,resource,companyId,raw.id);
+      if(target.openingRecordId)await authorize(tx,actor,companyId,"accounts.opening.manage");
       if(raw.operation==="post"&&target.status!=="DRAFT"||raw.operation==="cancel"&&target.status!=="POSTED")throw new AppError(409,"Document status no longer permits this action");
       if(resource==="entries"&&(target.sourceType!=="ENTRY"||target.reversalOfId))throw new AppError(409,"Use the source document's cancellation workflow");
       if(resource==="entries"&&raw.operation==="cancel"&&await tx.journalEntry.findFirst({where:{companyId,reversalOfId:target.id}}))throw new AppError(409,"This voucher is already reversed");
       if(resource==="payments"&&raw.operation==="post")target=await preparePaymentPost(tx,actor,companyId,target,raw.duplicateConfirmation);
       const note=String(raw.note??"").trim().slice(0,2000);
+      if(target.openingRecordId&&note.length<10)throw new AppError(400,"Opening reversals require a written reason of at least 10 characters");
       if(raw.operation==="cancel"&&note.length<3)throw new AppError(400,"Give a reason for cancellation");
       const rule=await approvalRule(tx,companyId,resource,raw.operation,target);
+      if(target.openingRecordId&&!rule)throw new AppError(409,"Opening cancellation requires an active independent document-cancellation approval rule");
       if(rule)return requestApproval(tx,actor,companyId,resource,raw.operation,target,note,rule);
       return execute(tx,actor,companyId,resource,raw.operation,raw.id,note,permission);
     }
@@ -106,6 +84,15 @@ export async function saveAccountRecord(actor:Actor,companyCode:string,resource:
 /** Invoked by the shared approval service in the SAME decision transaction. */
 export async function executeAccountingApproval(tx:Tx,actor:Actor,companyId:string,approval:any) {
   const request=approval.requestData as {resource:string;operation:string;note:string};
+  if(approval.docType==="OPENING") {
+    if(request.resource!=="opening-documents"||request.operation!=="cancel"||approval.action!=="cancel")
+      throw new AppError(400,"Invalid opening reversal approval target");
+    await authorize(tx,actor,companyId,(approval.ruleSnapshot as {approverPermissionCode:string}).approverPermissionCode);
+    await ledgerLock(tx,companyId);
+    const target=await tx.openingRecord.findFirst({where:{id:approval.docId,companyId,status:"POSTED"}});
+    if(!target||target.version!==approval.targetVersion)throw new AppError(409,"The opening document changed; withdraw and submit a new reversal request");
+    return executeOpeningReversal(tx,actor,companyId,target.id,request.note);
+  }
   if(!["INVOICE","BILL","PAYMENT","ENTRY"].includes(approval.docType)||!accountConfig[request.resource as keyof typeof accountConfig]||!["post","cancel"].includes(request.operation))
     throw new AppError(400,"Financial approval handler not available");
   const expectedType=({invoices:"INVOICE",bills:"BILL",payments:"PAYMENT",entries:"ENTRY"} as Record<string,string>)[request.resource];

@@ -77,4 +77,4 @@ export const journalTemplate=[
   ["SALES","Sales journal","SALES"],["PURCHASE","Purchase journal","PURCHASE"],
   ["GENERAL","General journal","GENERAL"],["CASH","Cash journal","CASH"],["BANK","Bank journal","BANK"]
 ] as const;
-export const accountsDocumentTypes=["INV","CN","BILL","DN","REC","PAY","JE","JV","CV","BV","TRF","EXP","REV"];
+export const accountsDocumentTypes=["INV","CN","BILL","DN","REC","PAY","JE","JV","CV","BV","TRF","EXP","REV","OCA","OBK","ORI","OPB","OST","OPJ"];

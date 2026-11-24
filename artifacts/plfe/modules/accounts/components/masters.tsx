@@ -10,7 +10,7 @@ import { RecordForm, type Field } from "@/modules/core/components/record-form";
 import { ActiveTag, Tag, useAction, useAdmin } from "@/modules/core/components/shared";
 import { dateTime } from "@/modules/core/components/format";
 import { accountSchema, departmentSchema, journalSchema, outletSchema, partySchema, provinces } from "../schema";
-import { A, OUTLET_TYPES, taxLabel, EmptyBox, ErrorBox, Money, col, perm, useAll, useDeepId, useOp, type Col } from "./util";
+import { A, OUTLET_TYPES, dec, taxLabel, EmptyBox, ErrorBox, Money, col, perm, useAll, useDeepId, useOp, type Col } from "./util";
 import { DetailDialog, Facts, useRecord } from "./detail";
 
 type MasterCfg = {
@@ -177,7 +177,7 @@ function Roles({ r }: { r: RecordData }) {
   return <span className="flex flex-wrap gap-1">{ROLE_KEYS.filter((k) => r[k]).map((k) => <Tag key={k} tone={k === "isCustomer" ? "ok" : k === "isSupplier" ? "brand" : "teal"}>{L.f[k]}</Tag>)}</span>;
 }
 export function PartiesSection() {
-  const { company, identity, overview } = useAdmin();
+  const { company, identity, overview, can } = useAdmin();
   const selfId = overview?.company?.id;
   // Identity is chosen explicitly from companies in this session; never inferred from names.
   const coOpts = (identity?.companies ?? []).map((c: RecordData) => ({ value: c.id, label: `${c.code} · ${c.name}${c.id === selfId ? " (this company)" : ""}` }));
@@ -192,13 +192,11 @@ export function PartiesSection() {
         { name: "linkedCompanyId", kind: "select", allowNone: true, wide: true, label: A.co.linked, options: coOpts, hint: `${A.co.linkedHint} ${A.co.selfWarn}` },
         { name: "city", kind: "text" }, { name: "province", kind: "select", options: provinces.map(value=>({value,label:value})) }, { name: "creditDays", kind: "number" }, { name: "address", kind: "textarea" },
         ...ROLE_KEYS.map((k) => ({ name: k, kind: "switch" as const })), { name: "active", kind: "switch" },
-        { name: "openingBalance", kind: "money", createOnly: true, hint: A.a.openingHint },
-        { name: "openingSide", kind: "select", createOnly: true, options: Object.entries(A.sides).map(([value, label]) => ({ value, label })) },
       ]}
       columns={[codeCol, nameCol, col("companyName", (r) => <span className="text-xs">{r.companyName ?? "—"}</span>), col("roles", (r) => <Roles r={r} />), { ...col("linkedCompany", (r) => <span className="font-mono text-xs">{r.linkedCompany?.code ?? "—"}</span>), header: A.co.linked }, col("city"), col("province"), col("creditDays", (r) => <span className="font-mono text-xs">{r.creditDays ?? 0}</span>), activeCol]}
-      facts={(r) => [[L.f.companyName, r.companyName || "—"], [A.f.roles, <Roles key="r" r={r} />], [A.co.linked, <span key="lc">{coLabel(r)}{r.linkedCompanyId && r.linkedCompanyId === selfId && <span className="block text-xs text-destructive">{A.co.selfWarn}</span>}{r.companyIdentityLocked && <span className="block text-xs text-muted-foreground">{A.co.locked}</span>}</span>], [L.f.phone, r.phone || "—"], [L.f.email, r.email || "—"], [L.f.city, r.city || "—"], [L.f.province, r.province || "—"], [L.f.ntn, r.ntn || "—"], [A.f.strn, r.strn || "—"], [A.f.taxTreatment, A.taxTreatments[r.taxTreatment] ?? r.taxTreatment ?? "—"], [A.f.taxExemptionReason, r.taxExemptionReason || "—"], [A.f.taxCertificateRef, r.taxCertificateRef || "—"], [L.f.creditDays, String(r.creditDays ?? 0)], [L.f.address, r.address || "—"]]}
+      facts={(r) => [[L.f.companyName, r.companyName || "—"], [A.f.roles, <Roles key="r" r={r} />], [A.co.linked, <span key="lc">{coLabel(r)}{r.linkedCompanyId && r.linkedCompanyId === selfId && <span className="block text-xs text-destructive">{A.co.selfWarn}</span>}{r.companyIdentityLocked && <span className="block text-xs text-muted-foreground">{A.co.locked}</span>}</span>], [L.f.phone, r.phone || "—"], [L.f.email, r.email || "—"], [L.f.city, r.city || "—"], [L.f.province, r.province || "—"], [L.f.ntn, r.ntn || "—"], [A.f.strn, r.strn || "—"], [A.f.taxTreatment, A.taxTreatments[r.taxTreatment] ?? r.taxTreatment ?? "—"], [A.f.taxExemptionReason, r.taxExemptionReason || "—"], [A.f.taxCertificateRef, r.taxCertificateRef || "—"], [L.f.creditDays, String(r.creditDays ?? 0)], ...(r.openingBalance && !dec(r.openingBalance).isZero() ? [[A.op.legacyOpening, <span key="lo"><Money v={r.openingBalance} /> <span className="text-xs text-muted-foreground">{A.sides[r.openingSide] ?? r.openingSide ?? ""} · {A.op.legacyNote}</span></span>] as [string, ReactNode]] : []), [L.f.address, r.address || "—"]]}
       lockFields={(r) => (r.companyIdentityLocked ? ["linkedCompanyId"] : [])}
-      extraView={(r) => <Link href={`/${company}/accounts/party-ledger?partyId=${r.id}`} className="inline-block text-sm font-medium text-primary hover:underline" data-testid="link-party-ledger">{A.nav["party-ledger"]}</Link>}
+      extraView={(r) => <div className="flex flex-wrap gap-4 text-sm"><Link href={`/${company}/accounts/party-ledger?partyId=${r.id}`} className="font-medium text-primary hover:underline" data-testid="link-party-ledger">{A.nav["party-ledger"]}</Link>{can("accounts.opening.manage") && <Link href={`/${company}/accounts/opening`} className="font-medium text-primary hover:underline" data-testid="link-guided-opening">{A.op.partyLink}</Link>}</div>}
     />
   );
 }
