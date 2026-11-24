@@ -59,8 +59,13 @@ pass remains scheduled after all five parts; this is not a claim that Parts
 
 ### Revision delivery
 
-The verified code revision will be recorded here after its push succeeds.
-No deployment is included. A failed push must stop further part work.
+- Code commit: `0b8b5469de37494601a06b3cce18aa8d5065f2e5` —
+  `Add effective-dated tax, document snapshots, posting and reporting`.
+- `git push origin HEAD:main` succeeded; `git ls-remote origin refs/heads/main`
+  returned that exact SHA, matching local HEAD. This progress-record follow-up
+  is pushed separately after recording that successful verification.
+- No deployment is included. Parts 3–5 remain; the next authorized part is
+  payment controls. A failed push must stop further part work.
 
 ## Pre-Tax additions — 2026-11-24
 
