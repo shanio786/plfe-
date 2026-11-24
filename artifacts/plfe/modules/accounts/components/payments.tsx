@@ -13,7 +13,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DataTable } from "@/modules/core/components/data-table";
 import { useAdmin } from "@/modules/core/components/shared";
-import { date, isoDay } from "@/modules/core/components/format";
+import { date, dateTime, isoDay } from "@/modules/core/components/format";
+import { DupTable } from "./payment-duplicate";
 import { paymentSchema } from "../schema";
 import { A, Amt, OutletTag, outletFor, outletOpts, ApprovalNotice, DocStatus, KindTag, Money, PickSelect, Section, col, dec, fix4, label, perm, sum, useDeepId, useLookups, useOp , numCol } from "./util";
 import { Attachments, DetailDialog, Facts, useRecord } from "./detail";
@@ -71,6 +72,7 @@ export function PaymentsSection() {
               [A.f.settlementAccountId, label(rec.settlementAccount ?? rec.account)], [A.f.department, rec.department?.name ?? "—"], [A.f.outlet, <OutletTag key="o" o={rec.outlet} />], [A.f.narration, rec.narration || "—"],
             ]} />
             <EntryLinks rec={rec} />
+            <DuplicateEvidence rec={rec} />
             <Section title={A.a.allocations}>
               {(rec.allocations ?? []).length === 0 ? <p className="px-4 py-4 text-sm text-muted-foreground">{A.f.advance}: <Money v={rec.amount} /></p> : (
                 <ul className="divide-y">
@@ -102,6 +104,7 @@ export function PaymentsSection() {
 function PaymentEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onClose: () => void; onSaved: (r: RecordData) => void }) {
   const op = useOp();
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const { chart, parties, departments, outlets } = useLookups(true);
   const [outletWarn, setOutletWarn] = useState("");
@@ -114,15 +117,20 @@ function PaymentEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
   const prevKey = `${direction}:${partyId}`;
   const [lastKey, setLastKey] = useState(prevKey);
   useEffect(() => { if (prevKey !== lastKey) { form.setValue("allocations", []); setLastKey(prevKey); } }, [prevKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { company: co, overview } = useAdmin();
+  const selfId = overview?.company?.id;
+  const selfParty = !!selfId && parties.rows.find((p) => p.id === partyId)?.linkedCompanyId === selfId;
+  const selfError = !!error && errorCode === "SELF_PAYMENT";
   const settleOpts = chart.rows.filter((a) => !a.isGroup && a.active !== false && (method === "BANK" ? a.isBank : a.isCash)).map((a) => ({ value: a.id, label: label(a) }));
   const submit = form.handleSubmit(async (v) => {
     setError(null);
     try {
+      setErrorCode(null);
       const r = await op("payments", { operation: "save", ...(rec ? { id: rec.id } : {}), ...v, departmentId: v.departmentId || null, outletId: form.getValues("outletId") || null, allocations: cleanAllocs(v.allocations ?? []) });
       if (r?.approvalRequested) setNotice(r.message || A.a.approvalSent);
       onSaved(r as RecordData);
       if (!r?.approvalRequested) onClose();
-    } catch (e: any) { setError(e.message); }
+    } catch (e: any) { setError(e.message); setErrorCode(e?.details?.code ?? null); }
   });
   const errs: any = form.formState.errors;
   const seg = (name: "direction" | "method", values: string[]) => (
@@ -139,7 +147,7 @@ function PaymentEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5"><Label>{A.f.direction}</Label>{seg("direction", ["RECEIPT", "PAYMENT"])}</div>
             <div className="space-y-1.5"><Label>{A.f.method}</Label>{seg("method", ["BANK", "CASH"])}</div>
-            <div className="space-y-1.5"><Label>{A.f.party}</Label><Controller control={form.control} name="partyId" render={({ field }) => <PickSelect value={field.value} onChange={(v) => field.onChange(v ?? "")} className="h-9" testId="select-payment-party" placeholder={parties.loading ? L.common.loading : A.f.party} options={parties.rows.filter((p) => p.active !== false || p.id === field.value).map((p) => ({ value: p.id, label: label(p) }))} />} />{errs.partyId && <p className="text-xs text-destructive">{L.common.required}</p>}</div>
+            <div className="space-y-1.5"><Label>{A.f.party}</Label><Controller control={form.control} name="partyId" render={({ field }) => <PickSelect value={field.value} onChange={(v) => field.onChange(v ?? "")} className="h-9" testId="select-payment-party" placeholder={parties.loading ? L.common.loading : A.f.party} options={parties.rows.filter((p) => p.active !== false || p.id === field.value).map((p) => ({ value: p.id, label: label(p) }))} />} />{errs.partyId && <p className="text-xs text-destructive">{L.common.required}</p>}{selfParty && <p className="text-xs text-destructive" data-testid="text-payment-self">{A.pd.selfHint}</p>}</div>
             <div className="space-y-1.5"><Label>{A.f.settlementAccountId}</Label><Controller control={form.control} name="settlementAccountId" render={({ field }) => <PickSelect value={field.value} onChange={(v) => { field.onChange(v ?? ""); const o = outletFor(chart.rows, v, form.getValues("outletId")); if (o.set) form.setValue("outletId", o.set); setOutletWarn(o.warn ?? ""); }} className="h-9" testId="select-settlement" placeholder={A.kinds[method]} options={settleOpts} />} />{errs.settlementAccountId && <p className="text-xs text-destructive">{L.common.required}</p>}</div>
             <div className="space-y-1.5"><Label>{A.f.date}</Label><Input type="date" {...form.register("date")} data-testid="input-payment-date" /></div>
             <div className="space-y-1.5"><Label>{A.f.amount}</Label><Input inputMode="decimal" className="font-mono" placeholder="0.0000" {...form.register("amount")} data-testid="input-payment-amount" />{errs.amount && <p className="text-xs text-destructive">{String(errs.amount.message)}</p>}</div>
@@ -151,7 +159,7 @@ function PaymentEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
             <AllocationPicker direction={direction} partyId={partyId || null} amount={amount ?? ""} value={field.value ?? []} onChange={field.onChange} mine={rec && rec.status === "DRAFT" ? {} : mineOf(rec)} />
           )} />
           {notice && <ApprovalNotice message={notice} />}
-          {error && <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" data-testid="text-form-error">{error}</p>}
+          {error && <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive" data-testid="text-form-error">{error}{selfError && <> <Link href={`/${co}/accounts/vouchers`} className="font-medium underline">{A.pd.openTransfer}</Link></>}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>{notice ? L.common.close : L.common.cancel}</Button>
             {!notice && <Button type="submit" disabled={form.formState.isSubmitting} data-testid="button-save-payment">{form.formState.isSubmitting && <Loader2 className="animate-spin" />}{L.common.save}</Button>}
@@ -183,5 +191,31 @@ function AllocateDialog({ rec, onClose, onSaved }: { rec: RecordData; onClose: (
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Audit trail for a confirmed possible-duplicate: who, when, why, and what matched at the time. */
+function DuplicateEvidence({ rec }: { rec: RecordData }) {
+  const ev = rec.duplicateEvidence;
+  if (!ev && !rec.duplicateConfirmedAt && !rec.duplicateNote) return null;
+  return (
+    <Section title={A.pd.evidence}>
+      <div className="space-y-2 px-4 py-3" data-testid="section-duplicate-evidence">
+        <Facts items={[
+          [A.pd.confirmedBy, ev?.confirmedByName ?? rec.duplicateConfirmedBy ?? "—"],
+          [A.pd.confirmedAt, <span key="t" className="font-mono">{rec.duplicateConfirmedAt ? dateTime(rec.duplicateConfirmedAt) : "—"}</span>],
+          [A.pd.noteLabel, rec.duplicateNote || "—"],
+        ]} />
+        {(ev?.matchHash || ev?.fingerprint) && (
+          <p className="min-w-0 text-[11px] text-muted-foreground" data-testid="text-duplicate-fingerprint">{A.pd.fingerprint}: <span className="break-all font-mono">{ev.matchHash ?? ev.fingerprint}</span></p>
+        )}
+        {Array.isArray(ev?.matches) && ev.matches.length > 0 && (
+          <div>
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{A.pd.matches}</div>
+            <div className="overflow-x-auto rounded-md border"><DupTable matches={ev.matches} /></div>
+          </div>
+        )}
+      </div>
+    </Section>
   );
 }

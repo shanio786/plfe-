@@ -104,7 +104,7 @@ async function handle(req:NextRequest,context:{params:Promise<{path:string[]}>})
     if(req.method==="POST") return json(await saveRecord(actor,company,resource,await req.json()));
     throw new AppError(405,"Method not allowed");
   } catch(error) {
-    if(error instanceof AppError) return json({error:error.message},error.status);
+    if(error instanceof AppError) return json({error:error.message,...(error.details?{details:error.details}:{})},error.status);
     if(error instanceof ZodError) return json({error:error.issues.map(i=>`${i.path.join(".")}: ${i.message}`).join("; ")},400);
     if(error instanceof Prisma.PrismaClientKnownRequestError) {
       if(error.code==="P2002") return json({error:"An active record already uses this value"},409);

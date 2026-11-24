@@ -9,7 +9,7 @@ export async function api<T = any>(path:string, init?:RequestInit):Promise<T> {
     credentials:"same-origin", cache:"no-store"
   });
   const body = await res.json();
-  if(!res.ok) throw Object.assign(new Error(body.error || "Request failed"), {status:res.status});
+  if(!res.ok) throw Object.assign(new Error(body.error || "Request failed"), {status:res.status,details:body.details});
   return body;
 }
 export function list(company:string,resource:string,params:URLSearchParams){return api<PageData>(`/${company}/${resource}?${params}`);}

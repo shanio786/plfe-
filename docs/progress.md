@@ -1,5 +1,55 @@
 # PLFE progress
 
+## Part 3 — Payment controls — 2026-11-24
+
+Implemented and automatically verified. Parts 4–5, the final combined check run
+and the single final signed-in financial browser pass remain outstanding.
+
+- Payment save/edit/post checks serialize with company ledger writes and compare
+  exact decimal amounts for the same company and party across both directions
+  and methods, within seven calendar days inclusive. Cancelled documents and
+  archived drafts are excluded; the document itself is excluded.
+- A blocked response lists existing numbers/dates and distinct full-UUID draft
+  references. The screen requires a deliberate unchecked confirmation and a
+  written reason of at least ten characters. Nothing is saved by the warning.
+  Signed, short-lived reviews bind the actor, company, document, operation,
+  material fields/allocations and exact matching-document evidence. Changed,
+  raced, expired or tampered reviews produce a fresh blocked warning.
+- Confirmed evidence, note, confirmer and time are stored and audited, and shown
+  in payment detail. Posting rechecks the evidence. Confirmation precedes an
+  approval request so it pins the right version; a later changed duplicate set
+  blocks approval execution and requires withdrawal/review/resubmission, not
+  an approver's silent override. Allocation/remaining-balance checks still run
+  transactionally; failed allocation rolls back the new document and consent.
+- Parties have an explicit legal-company link, selected from session companies.
+  Payments to the current company are rejected on save and post by that link
+  or matching non-empty normalized NTN/STRN, never by name alone. Once used on
+  posted/cancelled invoices, bills, payments or posted ledger lines, an existing
+  link cannot be replaced/cleared, including through direct database updates.
+  Deactivation/archive retains the link.
+- Transfer vouchers require exactly two distinct, active company-owned cash or
+  bank posting accounts, one equal positive debit/credit and no party. Both
+  bank/bank and cash/cash are supported. Save and post enforce this; manual
+  vouchers consisting solely of cash/bank movements direct the user to Transfer.
+  Existing permission, approval, calendar, lock and numbering paths remain.
+- Verification: the existing 48 Accounts checks passed; all 10 new payment
+  regression checks passed. The fresh combined run initially rejected a test
+  fixture that incorrectly tagged a bank line with a party; the fixture was
+  corrected to use the receivable line and the complete payment suite passed
+  on focused rerun, without relaxing the posting guard. Coverage includes
+  concurrent saves/retries, both seven-day edges, exact decimals, warning/no
+  writes, token tampering/expiry/actor binding, stale payload/set/post/approval,
+  rollback on over-allocation, self-payment identity, permanent identity links,
+  immutable posted confirmation, and transfer save/post revalidation.
+- `npm run build` passed. The new migration was applied to this application's
+  own database. Web and worker restarted cleanly; health and enrollment-status
+  requests passed, and the public sign-in screenshot rendered. Actual business
+  database counts remain zero users/companies/tax rates/journal entries.
+  First Owner enrollment remains a private operator action, not a coding
+  blocker. No secret or business opening amount was generated.
+- Commit/push verification: pending immediately after this progress update;
+  do not begin Part 4 before the remote revision is verified.
+
 ## Part 2 — Tax — 2026-11-24
 
 Implemented and automatically verified. The single final financial browser

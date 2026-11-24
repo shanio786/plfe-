@@ -6,6 +6,7 @@ import Decimal from "decimal.js";
 import type { ColumnDef } from "@tanstack/react-table";
 import { CheckCheck, RotateCw } from "lucide-react";
 import type { RecordData } from "@/lib/client";
+import { isDuplicateWarning, usePaymentDuplicate } from "./payment-duplicate";
 import { L } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -93,12 +94,24 @@ export function ApprovalNotice({ message, onClose }: { message: string; onClose?
 export type OpResult = { approvalRequested?: boolean; approvalId?: string; message?: string; [k: string]: any };
 export function useOp() {
   const { company, notify } = useAdmin();
+  const askDuplicate = usePaymentDuplicate();
   return useCallback(async (resource: string, body: Record<string, unknown>, okMsg: string = L.common.saved) => {
-    const r = (await accountSave(company, resource, body)) as OpResult;
+    let r: OpResult;
+    let send = body;
+    for (;;) {
+      try { r = (await accountSave(company, resource, send)) as OpResult; break; }
+      catch (e: any) {
+        // Only payments, only the duplicate warning. Nothing was saved; retry the SAME body after an explicit human confirmation.
+        if (resource !== "payments" || !isDuplicateWarning(e)) throw e;
+        if (!askDuplicate) throw new Error(`${e.message} ${A.pd.cancelled}`);
+        const answer = await askDuplicate(e.details); // rejects with "No changes saved" on cancel/unmount
+        send = { ...body, duplicateConfirmation: answer };
+      }
+    }
     if (r?.approvalRequested) notify(r.message || A.a.approvalSent);
     else notify(okMsg);
     return r;
-  }, [company, notify]);
+  }, [company, notify, askDuplicate]);
 }
 
 /* ---------- load every page for selectors ---------- */

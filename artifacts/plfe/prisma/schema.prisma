@@ -36,6 +36,7 @@ model Company {
   departments      Department[]
   accounts         Account[]
   parties          Party[]
+  identityParties Party[] @relation("PartyCompanyIdentity")
   journals         Journal[]
   entries          JournalEntry[]
   journalLines     JournalLine[]
@@ -504,6 +505,8 @@ model Party {
   code String
   name String
   companyName String? @map("company_name")
+  linkedCompanyId String? @map("linked_company_id") @db.Uuid
+  linkedCompany Company? @relation("PartyCompanyIdentity",fields:[linkedCompanyId],references:[id],onDelete:Restrict)
   phone String?
   email String?
   city String?
@@ -822,6 +825,10 @@ model Payment {
   settlementAccountId String @map("settlement_account_id") @db.Uuid
   amount Decimal @db.Decimal(18,4)
   narration String?
+  duplicateEvidence Json? @map("duplicate_evidence")
+  duplicateConfirmedBy String? @map("duplicate_confirmed_by") @db.Uuid
+  duplicateConfirmedAt DateTime? @map("duplicate_confirmed_at") @db.Timestamptz(6)
+  duplicateNote String? @map("duplicate_note")
   status String @default("DRAFT")
   departmentId String? @map("department_id") @db.Uuid
   eventId String? @map("event_id") @db.Uuid

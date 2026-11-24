@@ -15,6 +15,7 @@ import {postVoucher,saveVoucher} from "./vouchers";
 import {accountingToday} from "./time";
 import {saveOutlet} from "./outlets";
 import {saveTax} from "./tax-master";
+import {preparePaymentPost} from "./payment-controls";
 
 async function approvalRule(tx:Tx,companyId:string,resource:string,operation:string,target:any) {
   let amount=target.amount;
@@ -71,10 +72,11 @@ export async function saveAccountRecord(actor:Actor,companyCode:string,resource:
     if(resource==="outlets")return saveOutlet(tx,actor,companyId,raw);
     if(["post","cancel"].includes(raw.operation)) {
       if(!raw.id)throw new AppError(400,"Save a draft first");
-      const target=await record(tx,resource,companyId,raw.id);
+      let target=await record(tx,resource,companyId,raw.id);
       if(raw.operation==="post"&&target.status!=="DRAFT"||raw.operation==="cancel"&&target.status!=="POSTED")throw new AppError(409,"Document status no longer permits this action");
       if(resource==="entries"&&(target.sourceType!=="ENTRY"||target.reversalOfId))throw new AppError(409,"Use the source document's cancellation workflow");
       if(resource==="entries"&&raw.operation==="cancel"&&await tx.journalEntry.findFirst({where:{companyId,reversalOfId:target.id}}))throw new AppError(409,"This voucher is already reversed");
+      if(resource==="payments"&&raw.operation==="post")target=await preparePaymentPost(tx,actor,companyId,target,raw.duplicateConfirmation);
       const note=String(raw.note??"").trim().slice(0,2000);
       if(raw.operation==="cancel"&&note.length<3)throw new AppError(400,"Give a reason for cancellation");
       const rule=await approvalRule(tx,companyId,resource,raw.operation,target);

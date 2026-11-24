@@ -80,6 +80,16 @@ export async function saveMaster(tx:Tx,actor:Actor,companyId:string,resource:str
     data=partySchema.parse(raw);
     if(before)for(const key of ["strn","taxTreatment","taxExemptionReason","taxCertificateRef"])
       if(raw[key]===undefined)data[key]=before[key];
+    if(before&&raw.linkedCompanyId===undefined)data.linkedCompanyId=before.linkedCompanyId;
+    if(before?.linkedCompanyId&&before.linkedCompanyId!==data.linkedCompanyId&&(
+      await tx.invoice.findFirst({where:{companyId,partyId:before.id,status:{in:["POSTED","CANCELLED"]}}})||
+      await tx.bill.findFirst({where:{companyId,partyId:before.id,status:{in:["POSTED","CANCELLED"]}}})||
+      await tx.payment.findFirst({where:{companyId,partyId:before.id,status:{in:["POSTED","CANCELLED"]}}})||
+      await tx.journalLine.findFirst({where:{companyId,partyId:before.id,entry:{status:{in:["POSTED","CANCELLED"]}}}})
+    ))throw new AppError(409,"A used party's linked legal company identity is permanent; create a separate party for a different legal identity");
+    if(data.linkedCompanyId&&!await tx.company.findFirst({where:{id:data.linkedCompanyId,
+      ...(before?.linkedCompanyId===data.linkedCompanyId?{}:{active:true,deletedAt:null})}}))
+      throw new AppError(400,"Choose an existing active company identity; an old link may be retained after its deactivation");
     if(data.taxTreatment!=="STANDARD"&&((data.taxExemptionReason??"").trim().length<10||!(data.taxCertificateRef??"").trim()))
       throw new AppError(400,"Exempt and zero-rated parties need a written reason of at least ten characters and a certificate reference");
     if(![data.isCustomer,data.isSupplier,data.isExhibitor,data.isSponsor,data.isStaff].some(Boolean))throw new AppError(400,"Choose at least one party kind");

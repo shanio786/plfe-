@@ -11,6 +11,7 @@ import { PaymentsSection } from "./payments";
 import { VouchersSection } from "./vouchers";
 import { ReportSection } from "./reports";
 import { SettingsSection } from "./settings";
+import { PaymentDuplicateProvider } from "./payment-duplicate";
 import { TaxSummarySection, TaxesSection } from "./taxes";
 
 const NAV: ShellNav = [
@@ -46,7 +47,7 @@ function render(section: string): ReactNode {
       default: return null;
     }
   })();
-  return <Suspense fallback={<Skeleton className="h-80" />}>{body}</Suspense>;
+  return <PaymentDuplicateProvider><Suspense fallback={<Skeleton className="h-80" />}>{body}</Suspense></PaymentDuplicateProvider>;
 }
 
 export function AccountsApp({ company, section }: { company: string; section: string }) {

@@ -146,8 +146,30 @@ function VoucherEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
   const acctOpts = chart.rows.filter((a) => !a.isGroup && a.active !== false && acct(a)).map((a) => ({ value: a.id, label: `${label(a)}${a.isBank ? `  [${A.a.bankTag}]` : a.isCash ? `  [${A.a.cashTag}]` : ""}` }));
   const jType = JOURNAL_FOR[kind] ?? "GENERAL";
   const jOpts = journals.rows.filter((j) => j.active !== false).sort((a, b) => Number(b.type === jType) - Number(a.type === jType)).map((j) => ({ value: j.id, label: `${label(j)} (${A.kinds[j.type] ?? j.type})` }));
+  const [trNote, setTrNote] = useState<string | null>(null);
+  const isCB = (id: string) => { const a = chart.rows.find((x) => x.id === id); return !!a && (a.isCash || a.isBank); };
+  const allCashBank = kind !== "TRANSFER" && watched.length >= 2 && watched.every((l) => l?.accountId && isCB(l.accountId));
+  /** Deliberate switch only: parties are removed when the user picks Transfer, and they are told. Saving never clears them. */
+  const chooseKind = (k: string) => {
+    form.setValue("kind", k);
+    setTrNote(null);
+    if (k === "TRANSFER") {
+      const had = form.getValues("lines").some((l: LLine) => l.partyId);
+      form.getValues("lines").forEach((_: LLine, i: number) => form.setValue(`lines.${i}.partyId`, null));
+      if (had) setTrNote(A.tr.partyCleared);
+    }
+  };
+  const transferProblem = (ls: LLine[]): string | null => {
+    if (ls.length !== 2) return A.tr.twoLines;
+    const p = ls.findIndex((l) => l.partyId);
+    if (p >= 0) return `${A.tr.hasParty} ${p + 1}.`;
+    if (!ls.every((l) => isCB(l.accountId))) return A.tr.cashBankOnly;
+    if (ls[0].accountId === ls[1].accountId) return A.tr.distinct;
+    return null;
+  };
   const submit = form.handleSubmit(async (v) => {
     setError(null);
+    if (v.kind === "TRANSFER") { const prob = transferProblem(v.lines); if (prob) { setError(prob); return; } }
     try {
       const body = { operation: "save", ...(rec ? { id: rec.id } : {}), ...v, lines: v.lines.map((l: LLine) => ({ accountId: l.accountId, debit: l.debit || "0.0000", credit: l.credit || "0.0000", partyId: l.partyId || null, memo: l.memo || null, departmentId: l.departmentId || null, eventId: null, outletId: l.outletId || null })) };
       const r = await op("entries", body);
@@ -168,9 +190,11 @@ function VoucherEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
           <div className="grid gap-3 sm:grid-cols-[1fr_1fr_160px]">
             <div className="space-y-1.5 sm:col-span-3"><Label>{A.f.kind}</Label>
               <div className="flex flex-wrap rounded-md border p-0.5">
-                {MANUAL.map((k) => <button key={k} type="button" disabled={!!rec} onClick={() => form.setValue("kind", k)} data-testid={`button-voucher-kind-${k}`} className={`flex-1 rounded px-2 py-1.5 text-xs font-medium ${kind === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>{A.kinds[k]}</button>)}
+                {MANUAL.map((k) => <button key={k} type="button" disabled={!!rec} onClick={() => chooseKind(k)} data-testid={`button-voucher-kind-${k}`} className={`flex-1 rounded px-2 py-1.5 text-xs font-medium ${kind === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>{A.kinds[k]}</button>)}
               </div>
             </div>
+            {kind === "TRANSFER" && <p className="text-xs text-muted-foreground sm:col-span-3" data-testid="text-transfer-hint">{A.tr.hint}{trNote ? ` ${trNote}` : ""}</p>}
+            {allCashBank && <p className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-1.5 text-xs sm:col-span-3" data-testid="text-suggest-transfer">{A.tr.suggest}{!rec && <Button type="button" size="sm" variant="outline" className="h-6 text-xs" onClick={() => chooseKind("TRANSFER")}>{A.tr.useTransfer}</Button>}</p>}
             <div className="space-y-1.5"><Label>{A.f.journal}</Label><Controller control={form.control} name="journalId" render={({ field }) => <PickSelect value={field.value} onChange={(v) => field.onChange(v ?? "")} className="h-9" testId="select-voucher-journal" options={jOpts} placeholder={journals.loading ? L.common.loading : A.f.journal} />} />{errs.journalId && <p className="text-xs text-destructive">{L.common.required}</p>}</div>
             <div className="space-y-1.5"><Label>{A.f.narration}</Label><Textarea rows={1} {...form.register("narration")} data-testid="input-voucher-narration" /></div>
             <div className="space-y-1.5"><Label>{A.f.date}</Label><Input type="date" {...form.register("date")} data-testid="input-voucher-date" /></div>
@@ -187,7 +211,7 @@ function VoucherEditor({ rec, onClose, onSaved }: { rec: RecordData | null; onCl
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-12">
                       <LineField label={A.f.account} className="col-span-2 sm:col-span-5" error={le?.accountId && A.a.pickAccount}><Controller control={form.control} name={`lines.${i}.accountId`} render={({ field }) => <PickSelect value={field.value} onChange={(v) => { field.onChange(v ?? ""); const o = outletFor(chart.rows, v, form.getValues(`lines.${i}.outletId`)); if (o.set) form.setValue(`lines.${i}.outletId`, o.set); setOutletWarn((w) => ({ ...w, [i]: o.warn ?? "" })); }} options={acctOpts} placeholder={A.f.account} className={`w-full ${le?.accountId ? "border-destructive" : ""}`} testId={`select-vline-account-${i}`} />} /></LineField>
-                      <LineField label={A.f.party} className="col-span-2 sm:col-span-4"><Controller control={form.control} name={`lines.${i}.partyId`} render={({ field }) => <PickSelect value={field.value} onChange={field.onChange} allowNone className="w-full" options={parties.rows.map((p) => ({ value: p.id, label: label(p) }))} testId={`select-vline-party-${i}`} />} /></LineField>
+                      {(kind !== "TRANSFER" || watched[i]?.partyId) && <LineField label={A.f.party} className="col-span-2 sm:col-span-4" error={kind === "TRANSFER" && watched[i]?.partyId ? `${A.tr.hasParty} ${i + 1}.` : undefined}><Controller control={form.control} name={`lines.${i}.partyId`} render={({ field }) => <PickSelect value={field.value} onChange={field.onChange} allowNone className="w-full" options={parties.rows.map((p) => ({ value: p.id, label: label(p) }))} testId={`select-vline-party-${i}`} />} /></LineField>}
                       <LineField label={A.f.memo} className="col-span-2 sm:col-span-3"><Input className="h-8" {...form.register(`lines.${i}.memo`)} data-testid={`input-vline-memo-${i}`} /></LineField>
                       <LineField label={A.f.department} className="sm:col-span-3"><Controller control={form.control} name={`lines.${i}.departmentId`} render={({ field }) => <PickSelect value={field.value} onChange={field.onChange} allowNone className="w-full" options={departments.rows.filter((d) => d.active !== false).map((d) => ({ value: d.id, label: label(d) }))} testId={`select-vline-dept-${i}`} />} /></LineField>
                       <LineField label={A.f.outlet} className="sm:col-span-3" error={outletWarn[i]}><Controller control={form.control} name={`lines.${i}.outletId`} render={({ field }) => <PickSelect value={field.value} onChange={(v) => { field.onChange(v); setOutletWarn((w) => ({ ...w, [i]: "" })); }} allowNone className="w-full" options={outletOpts(outlets.rows, field.value)} testId={`select-vline-outlet-${i}`} />} /></LineField>

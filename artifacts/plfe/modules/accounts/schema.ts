@@ -30,7 +30,7 @@ export const taxSchema=z.object({
   effectiveFrom:day,effectiveTo:z.union([day,z.literal("")]).nullish().transform(v=>v||null),
   active:z.boolean().default(true),previousVersionId:dimension
 });
-export const partySchema=z.object({code:text,name:text,companyName:optional,phone:optional,email:z.union([z.email(),z.literal("")]).nullish().transform(v=>v||null),city:optional,province,ntn:optional,strn:optional,
+export const partySchema=z.object({code:text,name:text,companyName:optional,linkedCompanyId:dimension,phone:optional,email:z.union([z.email(),z.literal("")]).nullish().transform(v=>v||null),city:optional,province,ntn:optional,strn:optional,
   taxTreatment:z.enum(["STANDARD","EXEMPT","ZERO_RATED"]).default("STANDARD"),taxExemptionReason:optional,taxCertificateRef:optional,
   address:optional,creditDays:z.coerce.number().int().min(0).max(3650).default(0),isCustomer:z.boolean().default(true),isSupplier:z.boolean().default(false),isExhibitor:z.boolean().default(false),isSponsor:z.boolean().default(false),isStaff:z.boolean().default(false),active:z.boolean().default(true),openingBalance:amount.default("0.0000"),openingSide:z.enum(["RECEIVABLE","PAYABLE"]).default("RECEIVABLE")});
 export const documentLineSchema=z.object({accountId:uuid,description:text,qty:amount.default("1.0000"),rate:amount,
@@ -40,7 +40,8 @@ export const billSchema=invoiceSchema.extend({kind:z.enum(["BILL","DEBIT_NOTE"])
 export const ledgerLineSchema=z.object({accountId:uuid,debit:amount.default("0.0000"),credit:amount.default("0.0000"),partyId:dimension,memo:optional,...tags});
 export const entrySchema=z.object({journalId:uuid,kind:z.enum(["JOURNAL","CASH","BANK","TRANSFER","EXPENSE"]).default("JOURNAL"),date:day,narration:optional,lines:z.array(ledgerLineSchema).min(2).max(200)});
 export const allocationSchema=z.object({invoiceId:dimension,billId:dimension,amount});
-export const paymentSchema=z.object({direction:z.enum(["RECEIPT","PAYMENT"]),method:z.enum(["CASH","BANK"]),partyId:uuid,date:day,settlementAccountId:uuid,amount,narration:optional,...tags,allocations:z.array(allocationSchema).max(200).default([])});
+export const duplicateConfirmationSchema=z.object({confirmed:z.literal(true),token:z.string().min(1).max(8192),note:z.string().trim().min(10,"Write a duplicate-payment reason of at least ten characters").max(2000)});
+export const paymentSchema=z.object({direction:z.enum(["RECEIPT","PAYMENT"]),method:z.enum(["CASH","BANK"]),partyId:uuid,date:day,settlementAccountId:uuid,amount,narration:optional,...tags,allocations:z.array(allocationSchema).max(200).default([]),duplicateConfirmation:duplicateConfirmationSchema.optional()});
 export const settingsSchema=z.object({receivableAccountId:uuid,payableAccountId:uuid,openingEquityAccountId:uuid,salesJournalId:uuid,purchaseJournalId:uuid,generalJournalId:uuid,cashJournalId:uuid,bankJournalId:uuid});
 export const accountResources=["chart","parties","departments","journals","outlets","taxes","invoices","bills","payments","entries","settings"] as const;
 export type AccountResource=typeof accountResources[number];

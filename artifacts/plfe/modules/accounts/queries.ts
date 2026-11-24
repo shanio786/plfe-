@@ -14,6 +14,7 @@ function includes(resource:string,detail=false,companyId?:string):any {
   const where={companyId,deletedAt:null};
   if(resource==="chart")return {parent:true,outlet:true,defaultTax:true};
   if(resource==="taxes")return {outputAccount:true,inputAccount:true};
+  if(resource==="parties")return {linkedCompany:{select:{id:true,code:true,name:true}}};
   if(resource==="outlets")return {accounts:{include:{parent:true},orderBy:{code:"asc"}}};
   if(resource==="invoices"||resource==="bills")return {party:true,...(detail?{original:true,entry:true,reversalEntry:true,lines:{where,orderBy:{lineNo:"asc"},include:{account:true,department:true,outlet:true}},allocations:{where:{...where,payment:{companyId,status:"POSTED",deletedAt:null}},include:{payment:true}}}:{})};
   if(resource==="payments")return {party:true,settlementAccount:true,department:true,outlet:true,...(detail?{entry:true,reversalEntry:true,allocations:{where,include:{invoice:true,bill:true}}}:{})};
@@ -23,6 +24,16 @@ function includes(resource:string,detail=false,companyId?:string):any {
 }
 async function enrich(tx:Tx,companyId:string,resource:string,rows:any[]) {
   const ids=rows.map(r=>r.id);if(!ids.length)return rows;
+  if(resource==="parties") {
+    const locks=await tx.$queryRaw<{id:string;locked:boolean}[]>`SELECT p.id,p.linked_company_id IS NOT NULL AND(
+      EXISTS(SELECT 1 FROM invoices d WHERE d.company_id=p.company_id AND d.party_id=p.id AND d.status IN ('POSTED','CANCELLED')) OR
+      EXISTS(SELECT 1 FROM bills d WHERE d.company_id=p.company_id AND d.party_id=p.id AND d.status IN ('POSTED','CANCELLED')) OR
+      EXISTS(SELECT 1 FROM payments d WHERE d.company_id=p.company_id AND d.party_id=p.id AND d.status IN ('POSTED','CANCELLED')) OR
+      EXISTS(SELECT 1 FROM journal_lines l JOIN journal_entries e ON e.id=l.entry_id AND e.company_id=l.company_id
+        WHERE l.company_id=p.company_id AND l.party_id=p.id AND e.status IN ('POSTED','CANCELLED'))
+    ) AS locked FROM parties p WHERE p.company_id=${companyId}::uuid AND p.id IN(${Prisma.join(ids.map(id=>Prisma.sql`${id}::uuid`))})`;
+    return rows.map(r=>({...r,companyIdentityLocked:locks.find(l=>l.id===r.id)?.locked===true}));
+  }
   if(resource==="taxes") {
     const usage=await tx.$queryRaw<{id:string;used:boolean}[]>`SELECT id,plfe_tax_version_used(company_id,id) AS used
       FROM taxes WHERE company_id=${companyId}::uuid AND id IN (${Prisma.join(ids.map(id=>Prisma.sql`${id}::uuid`))})`;

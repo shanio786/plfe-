@@ -75,6 +75,23 @@ export const L = {
     taxTreatments: { STANDARD: "Standard", EXEMPT: "Exempt", ZERO_RATED: "Zero-rated" } as Record<string, string>,
     taxDirections: { OUTPUT: "Output", INPUT: "Input" } as Record<string, string>,
     taxComponents: { SALES_TAX: "Sales tax", WITHHOLDING: "Withholding" } as Record<string, string>,
+    pd: {
+      title: "Possible duplicate payment", body: "Nothing was saved. These existing payments look like the same money movement. Review them before continuing.",
+      save: "Saving", post: "Posting", number: "Number", reference: "Reference", status: "Status", direction: "Direction", expires: "This review expires",
+      confirm: "I have checked the payments above and this is a separate, genuine payment.", note: "Why this is not a duplicate", noteHint: "At least 10 characters. Stored with the payment for audit.",
+      cont: "Continue and record", cancel: "Go back", cancelled: "No changes saved. The possible duplicate was not confirmed.", closed: "No changes saved. The duplicate review was closed.",
+      evidence: "Duplicate review", confirmedBy: "Confirmed by", confirmedAt: "Confirmed at", noteLabel: "Note", matches: "Matching payments at confirmation", fingerprint: "Fingerprint", draftRef: "draft",
+      selfHint: "Payments to this company itself are not allowed. Move own cash or bank funds with a Transfer voucher.", openTransfer: "Open vouchers",
+    },
+    co: {
+      linked: "Legal company identity", linkedHint: "Optional. Links this party to one of your companies by identity, not by name. Kept after deactivation.",
+      selfWarn: "This is the current company. Receipts and payments to it are refused; use a Transfer voucher for own cash/bank movements.", locked: "Locked: this identity already has posted history.",
+    },
+    tr: {
+      hint: "Transfer: exactly two lines, two different cash or bank accounts of this company, no party, one debit equal to one credit.",
+      partyCleared: "Parties were removed because Transfer lines carry no party.", hasParty: "Transfer lines cannot carry a party. Remove the party on line", twoLines: "A transfer needs exactly two lines.", distinct: "Choose two different accounts.", cashBankOnly: "Only cash or bank accounts can be used in a transfer.",
+      suggest: "Every line is a company cash or bank account. Use the Transfer kind for own fund movements.", useTransfer: "Switch to Transfer",
+    },
     t: {
       newTax: "New tax", newVersion: "Create new version", versionTitle: "New version of", versionHint: "Same code, kind, authority, province and applicability. The previous version is closed automatically the day before this one starts.",
       usedLocked: "This tax has been used on documents. Rate, accounts and start date are fixed; you can still set an end date or deactivate it. Create a new version to change the rate.", deactivate: "Turn off to stop it being offered. History stays.",

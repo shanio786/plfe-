@@ -1,5 +1,30 @@
 # Approved Phase 2 scope
 
+## Fresh-start Part 3 — payment controls
+
+- The duplicate window compares company/party/exact decimal across both
+  directions and methods, date minus seven through plus seven calendar days
+  inclusive. Drafts count; cancelled/archived records do not. Checks and writes
+  share the existing company ledger transaction lock.
+- A warning never writes a financial document. Explicit review requires a
+  checkbox and written reason. HMAC tokens expire after ten minutes and bind
+  actor/material payload/current evidence; the configured `SESSION_SECRET`
+  signs them in application memory and is never returned or logged. Saved
+  evidence is rechecked rather than treating a boolean as consent.
+- Consent precedes an independent approval request, pinning the right target
+  version. A changed duplicate set at execution blocks posting; withdraw/review/
+  resubmit (or reject) the pending request. An approver cannot silently replace
+  the requester's duplicate review.
+- Legal party identity is an explicit company foreign key, not a display name.
+  Matching non-empty normalized NTN/STRN also identifies self payments. Existing
+  links used by posted/cancelled documents or posted journal lines are permanent,
+  with database enforcement. Unknown identity can be enriched, but a used known
+  legal identity cannot be silently repointed.
+- Own-account movement uses Transfer, never a party payment: exactly two distinct
+  active company-owned cash/bank posting accounts, equal positive debit/credit,
+  no party. Cash/cash and bank/bank are valid. Other manual vouchers consisting
+  solely of cash/bank movements direct the operator to Transfer.
+
 ## Latest override: five-part fresh start
 
 Use this app's own empty database, without external restoration/connection or

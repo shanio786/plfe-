@@ -10,6 +10,7 @@ import {dateOnly,delegate,dimensionCheck,outletAccountCheck,meta,record,resource
 import {applyAllocations,decimal,outstanding,positive,zero} from "./balances";
 import {accountingToday} from "./time";
 import {calculateTaxDocument,taxLineEvidence} from "./tax-calculation";
+import {paymentConsent,rejectSelfPayment} from "./payment-controls";
 
 function storedLine(line:any) {
   return {...line,taxSnapshot:line.taxSnapshot??Prisma.DbNull,
@@ -60,16 +61,19 @@ export async function saveDocument(tx:Tx,actor:Actor,companyId:string,resource:"
     throw new AppError(400,receivable?"Choose a customer, exhibitor, sponsor or staff party":"Choose a supplier or staff party");
   let after:any;
   if(resource==="payments") {
-    const {allocations,...values}=data as ReturnType<typeof paymentSchema.parse>;
+    const {allocations,duplicateConfirmation,...values}=data as ReturnType<typeof paymentSchema.parse>;
+    await rejectSelfPayment(tx,companyId,party);
     await dimensionCheck(tx,companyId,values);
     const account=await record(tx,"chart",companyId,values.settlementAccountId);
     outletAccountCheck(account,values.outletId);
     if(!account.active||account.isGroup||(values.method==="CASH"?!account.isCash:!account.isBank))
       throw new AppError(400,"Choose an active cash or bank account matching the method");
-    const payload={...values,amount:positive(values.amount),date:dateOnly(values.date)};
+    const consent=await paymentConsent(tx,actor,companyId,{...values,allocations},before,duplicateConfirmation,"save");
+    const payload={...values,...consent.fields,amount:positive(values.amount),date:dateOnly(values.date)};
     after=before?await model.update({where:{id:before.id,companyId},data:{...payload,updatedBy:actor.id,version:{increment:1}}}):await model.create({data:{...payload,companyId,...meta(actor)}});
     const change=await applyAllocations(tx,actor,companyId,after,allocations);
     await audit(tx,actor,companyId,"ALLOCATE","payment_allocations",after.id,change.before,change.after);
+    if(consent.confirmedNow)await audit(tx,actor,companyId,"CONFIRM_DUPLICATE","payments",after.id,before,after);
   } else {
     const {lines,...values}=data as ReturnType<typeof invoiceSchema.parse>|ReturnType<typeof billSchema.parse>;
     if(values.dueDate<values.date)throw new AppError(400,"Due date cannot precede document date");
@@ -105,6 +109,8 @@ export async function postDocument(tx:Tx,actor:Actor,companyId:string,resource:"
   if(!party)throw new AppError(400,"Party is no longer active");
   let journalId:string,docType:string,lines:any[];
   if(resource==="payments") {
+    await rejectSelfPayment(tx,companyId,party);
+    await paymentConsent(tx,actor,companyId,before,before,undefined,"post");
     const receipt=before.direction==="RECEIPT";
     const account=await record(tx,"chart",companyId,before.settlementAccountId);
     await dimensionCheck(tx,companyId,before);
