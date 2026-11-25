@@ -42,8 +42,18 @@ export const entrySchema=z.object({journalId:uuid,kind:z.enum(["JOURNAL","CASH",
 export const allocationSchema=z.object({invoiceId:dimension,billId:dimension,amount});
 export const duplicateConfirmationSchema=z.object({confirmed:z.literal(true),token:z.string().min(1).max(8192),note:z.string().trim().min(10,"Write a duplicate-payment reason of at least ten characters").max(2000)});
 export const paymentSchema=z.object({direction:z.enum(["RECEIPT","PAYMENT"]),method:z.enum(["CASH","BANK"]),partyId:uuid,date:day,settlementAccountId:uuid,amount,narration:optional,...tags,allocations:z.array(allocationSchema).max(200).default([]),duplicateConfirmation:duplicateConfirmationSchema.optional()});
+/** Settings are also re-saved from a stored row, where an amount arrives as a
+ * Decimal rather than a string. Absent means "leave this as it is"; an empty
+ * value means "clear it". */
+const keptUuid=z.preprocess(v=>v===undefined?undefined:v===""?null:v,z.union([uuid,z.null()]).optional());
+const keptAmount=z.preprocess(
+  v=>v===undefined||v===null||v===""?undefined
+    :typeof v==="string"?v
+    :typeof (v as {toFixed?:unknown}).toFixed==="function"?(v as {toFixed:(n:number)=>string}).toFixed(4)
+    :String(v),
+  amount.optional());
 export const settingsSchema=z.object({receivableAccountId:uuid,payableAccountId:uuid,openingEquityAccountId:uuid,salesJournalId:uuid,purchaseJournalId:uuid,generalJournalId:uuid,cashJournalId:uuid,bankJournalId:uuid,
-  cashDifferenceAccountId:dimension,cashDifferenceThreshold:amount.default("0.0000")});
+  cashDifferenceAccountId:keptUuid,cashDifferenceThreshold:keptAmount});
 /** A counted drawer. Denominations are evidence only; the counted amount rules. */
 export const denominationSchema=z.object({value:amount,count:z.coerce.number().int().min(0).max(1000000)});
 export const cashCountSchema=z.object({accountId:uuid,date:day,countedAmount:amount,

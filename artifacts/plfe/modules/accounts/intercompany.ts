@@ -181,12 +181,28 @@ export async function groupBalances(tx:Tx,actor:Actor) {
   // This report crosses company boundaries by its nature, so it is the Owner's.
   if(!actor.isOwner)throw new AppError(403,"Group balances span every company and are visible to an Owner");
   const companies=await tx.company.findMany({where:{deletedAt:null},orderBy:{code:"asc"}});
+  if(companies.length<2)return {rows:[],balanced:true};
+  // Every group account and its balance in two queries, not four per pair: the
+  // group grows, and this report must not get slower with every company added.
+  const accounts=await tx.account.findMany({where:{counterpartyCompanyId:{not:null},deletedAt:null},
+    select:{id:true,companyId:true,counterpartyCompanyId:true,type:true}});
+  if(!accounts.length)return {rows:[],balanced:true};
+  const sums:{id:string;balance:Prisma.Decimal}[]=await tx.$queryRaw`
+    SELECT l.account_id AS id, coalesce(sum(l.debit-l.credit),0) AS balance
+    FROM journal_lines l JOIN journal_entries e ON e.id=l.entry_id AND e.company_id=l.company_id
+    WHERE l.deleted_at IS NULL AND e.deleted_at IS NULL AND e.status='POSTED'
+      AND l.account_id = ANY(ARRAY[${Prisma.join(accounts.map(a=>a.id))}]::uuid[])
+    GROUP BY l.account_id`;
+  const byAccount=new Map(sums.map(r=>[r.id,new Prisma.Decimal(r.balance)]));
+  const balance=(companyId:string,counterpartyCompanyId:string,type:"ASSET"|"LIABILITY")=>{
+    const account=accounts.find(a=>a.companyId===companyId&&a.counterpartyCompanyId===counterpartyCompanyId&&a.type===type);
+    return account?byAccount.get(account.id)??zero():zero();
+  };
   const rows:any[]=[];
   for(const a of companies)for(const b of companies) {
     if(a.id>=b.id)continue;
-    const [aDueFromB,aDueToB,bDueFromA,bDueToA]=await Promise.all([
-      balanceOf(tx,a.id,b.id,"ASSET"),balanceOf(tx,a.id,b.id,"LIABILITY"),
-      balanceOf(tx,b.id,a.id,"ASSET"),balanceOf(tx,b.id,a.id,"LIABILITY")]);
+    const aDueFromB=balance(a.id,b.id,"ASSET"),aDueToB=balance(a.id,b.id,"LIABILITY");
+    const bDueFromA=balance(b.id,a.id,"ASSET"),bDueToA=balance(b.id,a.id,"LIABILITY");
     // A's net claim on B, seen from A's books and again from B's books. Each
     // balance is debit minus credit, so a liability already carries its own
     // sign: A's due-to-B is negative when A owes B, and B's due-to-A is
@@ -205,17 +221,6 @@ export async function groupBalances(tx:Tx,actor:Actor) {
       unmatched});
   }
   return {rows,balanced:rows.every(r=>r.agree)};
-}
-
-async function balanceOf(tx:Tx,companyId:string,counterpartyCompanyId:string,type:"ASSET"|"LIABILITY") {
-  const account=await tx.account.findFirst({where:{companyId,counterpartyCompanyId,type,deletedAt:null}});
-  if(!account)return zero();
-  const [row]:any[]=await tx.$queryRaw`
-    SELECT coalesce(sum(l.debit-l.credit),0) AS balance
-    FROM journal_lines l JOIN journal_entries e ON e.id=l.entry_id AND e.company_id=l.company_id
-    WHERE l.company_id=${companyId}::uuid AND l.account_id=${account.id}::uuid
-      AND l.deleted_at IS NULL AND e.deleted_at IS NULL AND e.status='POSTED'`;
-  return decimal(new Prisma.Decimal(row.balance).toFixed(4));
 }
 
 /** Any movement between the pair that reached one company's books only. */
@@ -272,5 +277,5 @@ export async function groupBalancesView(actor:Actor,companyCode:string) {
   return db.$transaction(async tx=>{
     await companyScope(tx,actor,companyCode,"accounts.intercompany.read");
     return groupBalances(tx,actor);
-  });
+  },{timeout:30000});
 }

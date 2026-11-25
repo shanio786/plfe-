@@ -111,7 +111,9 @@ test("All six company setups are complete, calendar-correct and safe to rerun",a
     assert.equal(company.fyStartMonth,spec.startMonth);
     assert.equal(await db.role.count({where:{companyId:company.id,deletedAt:null}}),11);
     assert.equal(await db.branch.count({where:{companyId:company.id,code:"HQ",deletedAt:null}}),1);
-    assert.equal(await db.approvalRule.count({where:{companyId:company.id,deletedAt:null}}),5);
+    // Payment, branch deactivation, document cancellation, POS return, refund,
+    // cash difference and intercompany.
+    assert.equal(await db.approvalRule.count({where:{companyId:company.id,deletedAt:null}}),7);
     const years=await db.fiscalYear.findMany({where:{companyId:company.id,deletedAt:null}});
     assert.equal(years.length,1);
     assert.equal(years[0].startDate.getUTCMonth()+1,spec.startMonth);
@@ -121,7 +123,8 @@ test("All six company setups are complete, calendar-correct and safe to rerun",a
     assert.equal(+periods[0].startDate,+years[0].startDate);
     assert.equal(+periods[11].endDate,+years[0].endDate);
     periods.slice(1).forEach((p,i)=>assert.equal(+p.startDate-+periods[i].endDate,86400000));
-    assert.equal(await db.numberSeries.count({where:{companyId:company.id,deletedAt:null}}),19);
+    // Nineteen document types, plus cash counts and intercompany movements.
+    assert.equal(await db.numberSeries.count({where:{companyId:company.id,deletedAt:null}}),21);
     assert.equal(await db.accountingSettings.count({where:{companyId:company.id}}),1);
     assert.equal(await db.invoice.count({where:{companyId:company.id,status:"DRAFT",deletedAt:null}}),0);
   }
