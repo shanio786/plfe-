@@ -205,6 +205,36 @@ history, exact money, concurrency/rollback, isolation, allocations, approvals an
 cancellation reversal. See [Phase 2 acceptance](phase2-acceptance.md) for commands
 and the manual accounting test.
 
+### Intercompany, cash counts and reset
+
+`modules/accounts/intercompany.ts` owns every movement between two group
+companies. It writes both companies' journal entries inside one transaction and
+links them permanently to the movement, using the paired due-from/due-to accounts
+that `counterparties.ts` allocates at provisioning. No other module may post to a
+group company account. Posting requires the intercompany posting right in both
+companies; without it the request becomes an independent approval in the
+initiating company and nothing is written. Cancelling reverses both sides
+together. The group balances report reads each company's own books separately and
+states whether the two agree; it spans companies and is the Owner's.
+
+`modules/accounts/cash-count.ts` owns the daily count of one cash account. It
+computes the book balance from posted lines up to that date, recomputes it at
+posting time, and refuses a count whose book balance moved since it was saved. A
+difference needs a written explanation and posts to the company's cash difference
+account through the shared posting boundary; a count that agrees posts no entry
+and still takes a number from the same series. Bank accounts are not counted.
+
+`prisma/reset-company.ts` is operator-only maintenance, never reachable over
+HTTP. It deletes a company's demo documents and restarts its numbering so the
+company is handed over exactly as a new one. It lifts the protective triggers for
+the length of its own transaction, which is why it refuses any database that is
+not development or test and refuses a company whose books have been declared
+open. It keeps the append-only audit log and warns when another company still
+holds the other half of an intercompany movement.
+
+The screens for these three are not built yet; the services, database rules, API
+routes and automated checks are.
+
 ## Deferred beyond Accounts core
 
 Phase 3: cheque/petty-cash operations, sales/withholding tax calculations and

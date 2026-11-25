@@ -7,10 +7,13 @@ export const accountsPermissions=[
   "accounts.outlet.read","accounts.outlet.create","accounts.outlet.update",
   "accounts.tax.read","accounts.tax.create","accounts.tax.update",
   "accounts.opening.manage","accounts.import.create",
+  "accounts.cashcount.read","accounts.cashcount.create","accounts.cashcount.post",
+  "accounts.intercompany.read","accounts.intercompany.create","accounts.intercompany.post","accounts.intercompany.cancel",
   "accounts.report.read","accounts.approval.approve"
 ];
 export const accountsReadPermissions=[
   "accounts.chart.read","accounts.party.read","accounts.department.read","accounts.journal.read","accounts.outlet.read",
   "accounts.tax.read",
-  "accounts.invoice.read","accounts.bill.read","accounts.payment.read","accounts.entry.read","accounts.report.read"
+  "accounts.invoice.read","accounts.bill.read","accounts.payment.read","accounts.entry.read","accounts.report.read",
+  "accounts.cashcount.read","accounts.intercompany.read"
 ];

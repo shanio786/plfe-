@@ -1,5 +1,79 @@
 # PLFE progress
 
+## Part 5 — Intercompany, cash counts and reset to zero — 2026-11-25
+
+Built and verified locally in Claude Code rather than in Replit, on PostgreSQL 16
+with Node 22 and pnpm. Fourteen new automated checks pass. Part 5 completes the
+five-part fresh-start Accounts revision.
+
+- **Intercompany movements.** One service writes both companies' entries inside a
+  single transaction, for money paid on another company's behalf, received on its
+  behalf, or transferred to it. Each side uses the paired due-from/due-to accounts
+  that provisioning already creates, with exactly opposite debits and credits, so
+  the two companies' group balances cannot drift apart. Both companies must be
+  active, past go-live and unlocked on the date.
+- A posted movement is permanently linked to both entries. The database refuses a
+  posted row that carries only one side, refuses a company settling with itself,
+  requires a written reason of at least ten characters, and makes a posted
+  movement and both its entries immutable. Cancelling reverses both sides
+  together and needs the cancellation right in both companies.
+- Posting writes two companies, so it requires the intercompany posting right in
+  both. Without it the request becomes an independent approval in the initiating
+  company and neither company's books are touched meanwhile.
+- **Group balances report.** For every pair of companies it states what each owes
+  the other, computed separately from each company's own books, and says plainly
+  whether the two agree, naming any movement that reached one side only. It spans
+  companies by nature and is therefore the Owner's.
+- **Daily cash count.** One count per cash account per date: counted amount,
+  optional notes-and-coins evidence that must add up, the book balance the system
+  computes for that date, and the difference. A difference requires a written
+  explanation of at least ten characters and posts to the company's cash
+  difference account; a count that agrees posts no entry but still takes a number
+  from the same gapless series. The book balance is recomputed at posting time and
+  the count is refused if it moved since the drawer was counted. A difference
+  above the company threshold needs an independent approval, which every company
+  now has by default. Bank accounts are reconciled against a statement, not
+  counted. The Accounts overview names every drawer that has never been counted.
+- Added a cash count differences account to the events chart; the retail chart
+  already had one. New companies are provisioned with the cash-difference and
+  intercompany approval rules.
+- **Reset a company to zero.** An operator command that deletes a company's demo
+  documents rather than reversing them, and restarts its number sequences at one,
+  so the first real document is number one and the live ledgers open empty. It
+  keeps users, roles, chart, outlets, journals, number series, taxes, posting
+  settings and approval rules, and keeps the append-only audit log. It refuses any
+  database that is not development or test, and refuses a company whose books have
+  been declared open. It reports exactly what it removed and warns when another
+  company still holds the other half of an intercompany movement.
+
+### Verified
+
+- `tsc --noEmit` passes for the application and shared libraries.
+- Fourteen new checks in `tests/part5.test.ts` pass against the isolated
+  `_test` database, covering: paired provisioning accounts; both companies
+  written together with agreeing group balances; cancellation reversing both
+  sides and still agreeing; a transfer refused into a non-cash account; a company
+  refused settling with itself; a short reason refused; posting without rights in
+  the other company becoming a request that writes nothing; a count that agrees
+  numbered with no entry; a second count for the same drawer and date refused; a
+  difference refused without an explanation, then approved and posted to the cash
+  difference account; a bank account refused as a drawer; never-counted drawers
+  named in the overview; a reset leaving zero books, intact setup and numbering
+  from one; and the reset refused for opened books and for a non-disposable
+  database.
+
+### Not done
+
+- The signed-in financial browser pass is still outstanding. The new cash count,
+  intercompany and group balance screens are **not** built yet: this part delivers
+  the services, database rules, API routes and tests only.
+- `npm run test:phase1` / `test:phase2` and `db:migrate` call `prisma` and
+  `tsx` without a shell, which does not resolve on Windows. The underlying
+  commands were run directly instead. Two foundation checks also fail on Windows
+  for environment reasons unrelated to this work: the Docker Compose allowlist
+  check matches on `
+` against a CRLF file, and the HTTP journey check.
+
 ## Part 4 — Open the books from zero — 2026-11-24
 
 Implemented and automatically verified. Part 5, the final combined check run

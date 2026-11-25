@@ -19,6 +19,8 @@ import {enrollmentStatus,enrollOwner} from "@/lib/enrollment";
 import {saveOpening,requestOpeningReversal} from "@/modules/accounts/opening";
 import {openingOverview} from "@/modules/accounts/opening-state";
 import {importInfo,previewImport,confirmImport} from "@/modules/accounts/imports";
+import {cashCountRequest,cashCountsView} from "@/modules/accounts/cash-count";
+import {groupBalancesView,intercompanyRequest,intercompanyView} from "@/modules/accounts/intercompany";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
 function json(body:unknown,status=200){return NextResponse.json(redact(body),{status,headers:{"Cache-Control":"no-store"}});}
@@ -67,6 +69,20 @@ async function handle(req:NextRequest,context:{params:Promise<{path:string[]}>})
       if(section==="opening") {
         if(req.method==="GET")return json(await openingOverview(actor,company));
         if(req.method==="POST")return json(await saveOpening(actor,company,await req.json()));
+        throw new AppError(405,"Method not allowed");
+      }
+      if(section==="cash-counts") {
+        if(req.method==="GET")return json(await cashCountsView(actor,company));
+        if(req.method==="POST")return json(await cashCountRequest(actor,company,await req.json()));
+        throw new AppError(405,"Method not allowed");
+      }
+      if(section==="intercompany") {
+        if(req.method==="GET")return json(await intercompanyView(actor,company));
+        if(req.method==="POST")return json(await intercompanyRequest(actor,company,await req.json()));
+        throw new AppError(405,"Method not allowed");
+      }
+      if(section==="group-balances") {
+        if(req.method==="GET")return json(await groupBalancesView(actor,company));
         throw new AppError(405,"Method not allowed");
       }
       if(section==="opening-documents"&&req.method==="POST")

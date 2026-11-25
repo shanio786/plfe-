@@ -17,6 +17,8 @@ import {saveTax} from "./tax-master";
 import {preparePaymentPost} from "./payment-controls";
 import {approvalRule,requestApproval} from "./approvals";
 import {executeOpeningReversal} from "./opening";
+import {executeCashCountPosting} from "./cash-count";
+import {executeIntercompanyPosting} from "./intercompany";
 async function execute(tx:Tx,actor:Actor,companyId:string,resource:string,operation:string,id:string,note:string,permission:string) {
   if(resource==="entries") {
     const before=await record(tx,resource,companyId,id);
@@ -92,6 +94,22 @@ export async function executeAccountingApproval(tx:Tx,actor:Actor,companyId:stri
     const target=await tx.openingRecord.findFirst({where:{id:approval.docId,companyId,status:"POSTED"}});
     if(!target||target.version!==approval.targetVersion)throw new AppError(409,"The opening document changed; withdraw and submit a new reversal request");
     return executeOpeningReversal(tx,actor,companyId,target.id,request.note);
+  }
+  if(approval.docType==="CASH_COUNT"||approval.docType==="INTERCOMPANY") {
+    const cash=approval.docType==="CASH_COUNT";
+    if(request.resource!==(cash?"cash-counts":"intercompany")||request.operation!=="post"||approval.action!=="post")
+      throw new AppError(400,cash?"Invalid cash count approval target":"Invalid intercompany approval target");
+    const permission=(approval.ruleSnapshot as {approverPermissionCode:string}).approverPermissionCode;
+    await authorize(tx,actor,companyId,permission);
+    await ledgerLock(tx,companyId);
+    const target=cash
+      ? await tx.cashCount.findFirst({where:{id:approval.docId,companyId,status:"DRAFT"}})
+      : await tx.intercompanyTransfer.findFirst({where:{id:approval.docId,companyId,status:"DRAFT",deletedAt:null}});
+    if(!target||target.version!==approval.targetVersion)
+      throw new AppError(409,"The document changed; withdraw and submit a new request");
+    return cash
+      ? executeCashCountPosting(tx,actor,companyId,target.id,permission)
+      : executeIntercompanyPosting(tx,actor,companyId,target.id,permission);
   }
   if(!["INVOICE","BILL","PAYMENT","ENTRY"].includes(approval.docType)||!accountConfig[request.resource as keyof typeof accountConfig]||!["post","cancel"].includes(request.operation))
     throw new AppError(400,"Financial approval handler not available");

@@ -69,6 +69,7 @@ export function chartTemplate(chartKind:string):Row[] {
     ["6900","Depreciation","EXPENSE","6000",""],
     ["7000","Other income and expenses","EXPENSE",null,"group"],
     ["7100","Bank charges","EXPENSE","7000",""],
+    ...(retail ? [] as Row[] : [["7200","Cash count differences","EXPENSE","7000",""]] as Row[]),
     ...(retail ? [["7200","POS cash differences","EXPENSE","7000",""]] as Row[] : [])
   ];
   return rows;
@@ -77,4 +78,4 @@ export const journalTemplate=[
   ["SALES","Sales journal","SALES"],["PURCHASE","Purchase journal","PURCHASE"],
   ["GENERAL","General journal","GENERAL"],["CASH","Cash journal","CASH"],["BANK","Bank journal","BANK"]
 ] as const;
-export const accountsDocumentTypes=["INV","CN","BILL","DN","REC","PAY","JE","JV","CV","BV","TRF","EXP","REV","OCA","OBK","ORI","OPB","OST","OPJ"];
+export const accountsDocumentTypes=["INV","CN","BILL","DN","REC","PAY","JE","JV","CV","BV","TRF","EXP","REV","OCA","OBK","ORI","OPB","OST","OPJ","CC","ICT"];

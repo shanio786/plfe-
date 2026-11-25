@@ -66,6 +66,9 @@ model Company {
   approvals        Approval[]
   attachments      Attachment[]
   auditLogs        AuditLog[]
+  cashCounts       CashCount[]
+  intercompanyInitiated IntercompanyTransfer[] @relation("IntercompanyInitiator")
+  intercompanyFacing    IntercompanyTransfer[] @relation("IntercompanyCounterparty")
   @@map("companies")
 }
 
@@ -105,6 +108,7 @@ model Outlet {
   invoiceLines InvoiceLine[]
   billLines BillLine[]
   payments Payment[]
+  cashCounts CashCount[]
   @@unique([id,companyId])
   @@unique([companyId,code])
   @@index([companyId,active])
@@ -504,6 +508,9 @@ model Account {
   receivableSettings AccountingSettings[] @relation("Receivable")
   payableSettings AccountingSettings[] @relation("Payable")
   openingSettings AccountingSettings[] @relation("Opening")
+  cashDifferenceSettings AccountingSettings[] @relation("CashDifference")
+  cashCounts CashCount[]
+  intercompanySettlements IntercompanyTransfer[] @relation("IntercompanySettlementAccount")
   @@unique([id,companyId])
   @@index([companyId,parentId])
   @@map("accounts")
@@ -613,6 +620,9 @@ model JournalEntry {
   payments Payment[] @relation("PaymentEntry")
   cancelledPayments Payment[] @relation("PaymentReversal")
   partyOpenings Party[] @relation("PartyOpening")
+  cashCounts CashCount[] @relation("CashCountEntry")
+  intercompanyEntries IntercompanyTransfer[] @relation("IntercompanyEntry")
+  intercompanyFacingEntries IntercompanyTransfer[] @relation("IntercompanyFacingEntry")
   @@unique([id,companyId])
   @@unique([companyId,number])
   @@unique([companyId,sourceType,sourceId])
@@ -907,6 +917,8 @@ model AccountingSettings {
   generalJournalId String @map("general_journal_id") @db.Uuid
   cashJournalId String @map("cash_journal_id") @db.Uuid
   bankJournalId String @map("bank_journal_id") @db.Uuid
+  cashDifferenceAccountId String? @map("cash_difference_account_id") @db.Uuid
+  cashDifferenceThreshold Decimal @default(0) @map("cash_difference_threshold") @db.Decimal(18,4)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   createdBy String? @map("created_by") @db.Uuid
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -921,6 +933,7 @@ model AccountingSettings {
   generalJournal Journal @relation("GeneralJournal",fields:[generalJournalId,companyId],references:[id,companyId],onDelete:Restrict)
   cashJournal Journal @relation("CashJournal",fields:[cashJournalId,companyId],references:[id,companyId],onDelete:Restrict)
   bankJournal Journal @relation("BankJournal",fields:[bankJournalId,companyId],references:[id,companyId],onDelete:Restrict)
+  cashDifferenceAccount Account? @relation("CashDifference",fields:[cashDifferenceAccountId,companyId],references:[id,companyId],onDelete:Restrict)
   @@unique([id,companyId])
   @@map("accounting_settings")
 }
@@ -1021,4 +1034,80 @@ model ImportPreview {
   @@unique([id,companyId])
   @@index([companyId,createdBy,expiresAt])
   @@map("import_previews")
+}
+
+/// A counted cash balance for one cash account on one date. A draft has no ledger
+/// effect and may be discarded outright, so this table carries no soft delete; a
+/// posted count is immutable like every other financial document.
+model CashCount {
+  id String @id @default(uuid()) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  accountId String @map("account_id") @db.Uuid
+  outletId String? @map("outlet_id") @db.Uuid
+  number String?
+  date DateTime @db.Date
+  countedAmount Decimal @map("counted_amount") @db.Decimal(18,4)
+  bookAmount Decimal @map("book_amount") @db.Decimal(18,4)
+  difference Decimal @db.Decimal(18,4)
+  denominations Json?
+  explanation String?
+  status String @default("DRAFT")
+  entryId String? @map("entry_id") @db.Uuid
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String @map("updated_by") @db.Uuid
+  company Company @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  account Account @relation(fields:[accountId,companyId],references:[id,companyId],onDelete:Restrict)
+  outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
+  entry JournalEntry? @relation("CashCountEntry",fields:[entryId,companyId],references:[id,companyId],onDelete:Restrict)
+  @@unique([id,companyId])
+  @@unique([companyId,number])
+  @@unique([companyId,accountId,date])
+  @@unique([companyId,entryId])
+  @@index([companyId,date])
+  @@map("cash_counts")
+}
+
+/// One movement between two group companies. Both companies' entries are written
+/// in a single transaction and are permanently linked here, so neither side can
+/// exist without the other. The composite foreign keys make the database itself
+/// refuse an entry that belongs to the wrong company.
+model IntercompanyTransfer {
+  id String @id @default(uuid()) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  counterpartyCompanyId String @map("counterparty_company_id") @db.Uuid
+  kind String
+  number String?
+  date DateTime @db.Date
+  amount Decimal @db.Decimal(18,4)
+  reason String
+  settlementAccountId String @map("settlement_account_id") @db.Uuid
+  counterpartyAccountId String @map("counterparty_account_id") @db.Uuid
+  status String @default("DRAFT")
+  entryId String? @map("entry_id") @db.Uuid
+  counterpartyEntryId String? @map("counterparty_entry_id") @db.Uuid
+  reversalEntryId String? @map("reversal_entry_id") @db.Uuid
+  counterpartyReversalEntryId String? @map("counterparty_reversal_entry_id") @db.Uuid
+  cancelReason String? @map("cancel_reason")
+  approvalOperationKey String? @map("approval_operation_key") @db.Uuid
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company Company @relation("IntercompanyInitiator",fields:[companyId],references:[id],onDelete:Restrict)
+  counterpartyCompany Company @relation("IntercompanyCounterparty",fields:[counterpartyCompanyId],references:[id],onDelete:Restrict)
+  settlementAccount Account @relation("IntercompanySettlementAccount",fields:[settlementAccountId,companyId],references:[id,companyId],onDelete:Restrict)
+  entry JournalEntry? @relation("IntercompanyEntry",fields:[entryId,companyId],references:[id,companyId],onDelete:Restrict)
+  counterpartyEntry JournalEntry? @relation("IntercompanyFacingEntry",fields:[counterpartyEntryId,counterpartyCompanyId],references:[id,companyId],onDelete:Restrict)
+  @@unique([id,companyId])
+  @@unique([companyId,number])
+  @@unique([companyId,entryId])
+  @@unique([counterpartyCompanyId,counterpartyEntryId])
+  @@index([companyId,date,status])
+  @@index([counterpartyCompanyId,date,status])
+  @@map("intercompany_transfers")
 }

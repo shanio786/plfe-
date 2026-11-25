@@ -20,7 +20,8 @@ export async function approvalRule(tx:Tx,companyId:string,resource:string,operat
   return operation==="cancel"||!rule.thresholdAmount||amount.gt(rule.thresholdAmount)?rule:null;
 }
 export async function requestApproval(tx:Tx,actor:Actor,companyId:string,resource:string,operation:string,target:any,note:string,rule:any) {
-  const docType=({invoices:"INVOICE",bills:"BILL",payments:"PAYMENT",entries:"ENTRY","opening-documents":"OPENING"} as Record<string,string>)[resource];
+  const docType=({invoices:"INVOICE",bills:"BILL",payments:"PAYMENT",entries:"ENTRY","opening-documents":"OPENING",
+    "cash-counts":"CASH_COUNT",intercompany:"INTERCOMPANY"} as Record<string,string>)[resource];
   if(!docType)throw new AppError(400,"Unsupported financial approval source");
   const existing=await tx.approval.findFirst({where:{companyId,docType,docId:target.id,action:operation,status:"PENDING",deletedAt:null}});
   if(existing&&existing.targetVersion!==target.version)throw new AppError(409,"Withdraw the stale approval request and submit it again");

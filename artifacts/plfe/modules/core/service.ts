@@ -36,7 +36,7 @@ export async function provisionCompany(tx:Prisma.TransactionClient,actor:Actor,i
     await tx.rolePermission.createMany({data:template.permissions.map(permissionCode=>({companyId:c.id,roleId:r.id,permissionCode,createdBy:actor.id,updatedBy:actor.id}))});
     await audit(tx,actor,c.id,"CREATE","roles",r.id,null,{...r,permissionCodes:template.permissions});
   }
-  for(const [docType,action,thresholdAmount] of [["PAYMENT","post","500000.0000"],["BRANCH","deactivate",null],["DOCUMENT","cancel",null],["POS_RETURN","approve",null],["REFUND","approve",null]]) {
+  for(const [docType,action,thresholdAmount] of [["PAYMENT","post","500000.0000"],["BRANCH","deactivate",null],["DOCUMENT","cancel",null],["POS_RETURN","approve",null],["REFUND","approve",null],["CASH_DIFFERENCE","post","0.0000"],["INTERCOMPANY","post",null]]) {
     const rule=await tx.approvalRule.create({data:{companyId:c.id,docType:docType!,action:action!,thresholdAmount:thresholdAmount?money(thresholdAmount):null,approverPermissionCode:"core.approval.approve",createdBy:actor.id,updatedBy:actor.id}});
     await audit(tx,actor,c.id,"CREATE","approval_rules",rule.id,null,rule);
   }

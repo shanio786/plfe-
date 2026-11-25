@@ -12,6 +12,7 @@
     "db:migrate": "node scripts/prisma.mjs migrate deploy",
     "db:seed": "node scripts/seed.mjs",
     "db:seed:accounts": "node scripts/seed.mjs accounts",
+    "reset:company": "node scripts/reset-company.mjs",
     "lock:standalone": "node scripts/update-npm-lock.mjs",
     "worker": "tsx scripts/worker.ts",
     "test": "node scripts/test-phase1.mjs",

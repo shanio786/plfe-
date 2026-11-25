@@ -54,11 +54,11 @@ export async function initializeAccounts(tx:Tx,actor:Actor,companyId:string,prov
       await audit(tx,actor,companyId,"UPDATE","roles",role.id,{...role,permissionCodes:role.grants.map(g=>g.permissionCode)},{...role,permissionCodes:[...role.grants.map(g=>g.permissionCode),...missing]});
     }
   }
-  for(const rule of await tx.approvalRule.findMany({where:{companyId,docType:{in:["DOCUMENT","PAYMENT"]},approverPermissionCode:"core.approval.approve",deletedAt:null}})) {
+  for(const rule of await tx.approvalRule.findMany({where:{companyId,docType:{in:["DOCUMENT","PAYMENT","CASH_DIFFERENCE","INTERCOMPANY"]},approverPermissionCode:"core.approval.approve",deletedAt:null}})) {
     const changed=await tx.approvalRule.update({where:{id:rule.id,companyId},data:{approverPermissionCode:"accounts.approval.approve",updatedBy:actor.id}});
     await audit(tx,actor,companyId,"UPDATE","approval_rules",rule.id,rule,changed);
   }
-  const s=await tx.accountingSettings.create({data:{companyId,receivableAccountId:accounts.get("1300")!,payableAccountId:accounts.get("2100")!,openingEquityAccountId:accounts.get("3990")!,salesJournalId:journals.get("SALES")!,purchaseJournalId:journals.get("PURCHASE")!,generalJournalId:journals.get("GENERAL")!,cashJournalId:journals.get("CASH")!,bankJournalId:journals.get("BANK")!,...meta(actor)}});
+  const s=await tx.accountingSettings.create({data:{companyId,receivableAccountId:accounts.get("1300")!,payableAccountId:accounts.get("2100")!,openingEquityAccountId:accounts.get("3990")!,cashDifferenceAccountId:accounts.get("7200")??null,salesJournalId:journals.get("SALES")!,purchaseJournalId:journals.get("PURCHASE")!,generalJournalId:journals.get("GENERAL")!,cashJournalId:journals.get("CASH")!,bankJournalId:journals.get("BANK")!,...meta(actor)}});
   await audit(tx,actor,companyId,"CREATE","accounting_settings",s.id,null,s);
   return s;
 }

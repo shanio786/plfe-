@@ -42,6 +42,18 @@ export const entrySchema=z.object({journalId:uuid,kind:z.enum(["JOURNAL","CASH",
 export const allocationSchema=z.object({invoiceId:dimension,billId:dimension,amount});
 export const duplicateConfirmationSchema=z.object({confirmed:z.literal(true),token:z.string().min(1).max(8192),note:z.string().trim().min(10,"Write a duplicate-payment reason of at least ten characters").max(2000)});
 export const paymentSchema=z.object({direction:z.enum(["RECEIPT","PAYMENT"]),method:z.enum(["CASH","BANK"]),partyId:uuid,date:day,settlementAccountId:uuid,amount,narration:optional,...tags,allocations:z.array(allocationSchema).max(200).default([]),duplicateConfirmation:duplicateConfirmationSchema.optional()});
-export const settingsSchema=z.object({receivableAccountId:uuid,payableAccountId:uuid,openingEquityAccountId:uuid,salesJournalId:uuid,purchaseJournalId:uuid,generalJournalId:uuid,cashJournalId:uuid,bankJournalId:uuid});
+export const settingsSchema=z.object({receivableAccountId:uuid,payableAccountId:uuid,openingEquityAccountId:uuid,salesJournalId:uuid,purchaseJournalId:uuid,generalJournalId:uuid,cashJournalId:uuid,bankJournalId:uuid,
+  cashDifferenceAccountId:dimension,cashDifferenceThreshold:amount.default("0.0000")});
+/** A counted drawer. Denominations are evidence only; the counted amount rules. */
+export const denominationSchema=z.object({value:amount,count:z.coerce.number().int().min(0).max(1000000)});
+export const cashCountSchema=z.object({accountId:uuid,date:day,countedAmount:amount,
+  denominations:z.array(denominationSchema).max(40).default([]),
+  explanation:z.string().trim().max(2000).nullish().transform(v=>v||null)});
+/** One movement between two group companies; both sides are written together. */
+export const intercompanySchema=z.object({counterpartyCompanyId:uuid,
+  kind:z.enum(["PAY_ON_BEHALF","RECEIVE_ON_BEHALF","TRANSFER"],{error:"Choose paid on behalf, received on behalf or a plain transfer"}),
+  date:day,amount,
+  reason:z.string().trim().min(10,"Write a reason of at least ten characters").max(2000),
+  settlementAccountId:uuid,counterpartyAccountId:uuid});
 export const accountResources=["chart","parties","departments","journals","outlets","taxes","invoices","bills","payments","entries","settings"] as const;
 export type AccountResource=typeof accountResources[number];

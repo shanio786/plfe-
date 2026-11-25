@@ -10,6 +10,7 @@
     "db:migrate": "npm --prefix artifacts/plfe run db:migrate",
     "db:seed": "npm --prefix artifacts/plfe run db:seed",
     "db:seed:accounts": "npm --prefix artifacts/plfe run db:seed:accounts --",
+    "reset:company": "npm --prefix artifacts/plfe run reset:company --",
     "worker": "npm --prefix artifacts/plfe run worker",
     "test:phase1": "npm --prefix artifacts/plfe test",
     "test:phase2": "npm --prefix artifacts/plfe run test:phase2",
