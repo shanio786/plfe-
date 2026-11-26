@@ -21,7 +21,7 @@ export type Col = ColumnDef<RecordData, any>;
 /** Permission prefix per API resource. */
 export const PERM: Record<string, string> = {
   chart: "accounts.chart", parties: "accounts.party", departments: "accounts.department", journals: "accounts.journal", invoices: "accounts.invoice",
-  bills: "accounts.bill", outlets: "accounts.outlet", taxes: "accounts.tax", payments: "accounts.payment", entries: "accounts.entry", settings: "accounts.settings",
+  bills: "accounts.bill", outlets: "accounts.outlet", taxes: "accounts.tax", events: "accounts.event", payments: "accounts.payment", entries: "accounts.entry", settings: "accounts.settings",
 };
 export const perm = (resource: string, action: string) => `${PERM[resource]}.${action}`;
 

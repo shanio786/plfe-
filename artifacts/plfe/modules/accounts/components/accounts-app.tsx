@@ -1,6 +1,6 @@
 "use client";
 import { Suspense, type ReactNode } from "react";
-import { ArrowLeftRight, BookCopy, Building, FileInput, FileOutput, Gauge, HandCoins, Layers3, ListTree, NotebookTabs, Percent, Receipt, Hourglass, DoorOpen, Upload, Scale, ScrollText, Settings2, Store, UsersRound, Wallet } from "lucide-react";
+import { ArrowLeftRight, BookCopy, Building, CalendarRange, FileInput, FileOutput, Gauge, HandCoins, Layers3, ListTree, NotebookTabs, Percent, PiggyBank, Receipt, Hourglass, DoorOpen, Upload, Scale, ScrollText, Settings2, Store, UsersRound, Wallet } from "lucide-react";
 import { L } from "@/lib/labels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminApp, type ShellNav } from "@/modules/core/components/admin-app";
@@ -18,18 +18,20 @@ import { PaymentDuplicateProvider } from "./payment-duplicate";
 import { TaxSummarySection, TaxesSection } from "./taxes";
 import { CashCountsSection } from "./cash-counts";
 import { GroupBalancesSection, IntercompanySection } from "./intercompany";
+import { EventProfitSection, EventsSection } from "./events";
 
 const NAV: ShellNav = [
   { group: "books", items: [{ key: "overview", icon: Gauge }, { key: "vouchers", icon: NotebookTabs }] },
   { group: "documents", items: [{ key: "invoices", icon: FileOutput }, { key: "bills", icon: FileInput }, { key: "payments", icon: HandCoins }, { key: "cash-counts", icon: Wallet }, { key: "intercompany", icon: ArrowLeftRight }] },
-  { group: "reports", items: [{ key: "trial-balance", icon: Scale }, { key: "ledger", icon: ScrollText }, { key: "party-ledger", icon: BookCopy }, { key: "tax-summary", icon: Percent }, { key: "party-ageing", icon: Hourglass }, { key: "group-balances", icon: Scale }] },
-  { group: "masters", items: [{ key: "chart", icon: ListTree }, { key: "parties", icon: UsersRound }, { key: "departments", icon: Building }, { key: "journals", icon: Layers3 }, { key: "outlets", icon: Store }] },
+  { group: "reports", items: [{ key: "trial-balance", icon: Scale }, { key: "ledger", icon: ScrollText }, { key: "party-ledger", icon: BookCopy }, { key: "tax-summary", icon: Percent }, { key: "party-ageing", icon: Hourglass }, { key: "group-balances", icon: Scale }, { key: "event-profit", icon: PiggyBank }] },
+  { group: "masters", items: [{ key: "chart", icon: ListTree }, { key: "parties", icon: UsersRound }, { key: "departments", icon: Building }, { key: "journals", icon: Layers3 }, { key: "outlets", icon: Store }, { key: "events", icon: CalendarRange }] },
   { group: "setup", items: [{ key: "settings", icon: Settings2 }, { key: "taxes", icon: Receipt }, { key: "opening", icon: DoorOpen }, { key: "imports", icon: Upload }] },
 ];
 const READ: Record<string, string> = {
   overview: "accounts.report.read", chart: "accounts.chart.read", parties: "accounts.party.read", departments: "accounts.department.read", journals: "accounts.journal.read", outlets: "accounts.outlet.read",
   invoices: "accounts.invoice.read", bills: "accounts.bill.read", payments: "accounts.payment.read", vouchers: "accounts.entry.read",
   "cash-counts": "accounts.cashcount.read", intercompany: "accounts.intercompany.read", "group-balances": "accounts.intercompany.read",
+  events: "accounts.event.read", "event-profit": "accounts.report.read",
   "trial-balance": "accounts.report.read", ledger: "accounts.report.read", "party-ledger": "accounts.report.read", settings: "accounts.settings.read", taxes: "accounts.tax.read", "tax-summary": "accounts.report.read", opening: "accounts.opening.manage", imports: "accounts.import.create", "party-ageing": "accounts.report.read",
 };
 
@@ -56,6 +58,8 @@ function render(section: string): ReactNode {
       case "cash-counts": return <CashCountsSection />;
       case "intercompany": return <IntercompanySection />;
       case "group-balances": return <GroupBalancesSection />;
+      case "events": return <EventsSection />;
+      case "event-profit": return <EventProfitSection />;
       default: return null;
     }
   })();

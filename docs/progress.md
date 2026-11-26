@@ -1,5 +1,51 @@
 # PLFE progress
 
+## Events: the expo tag — 2026-11-26
+
+The first part of the events module, and the one the accounts core was built to
+wait for. An expo is now a record, and the event columns that have sat on every
+journal, invoice and bill line since the accounts core finally point at it.
+
+- An event belongs to one company and carries its code, name, city, venue,
+  edition, first and last day, status and budget. Its code is permanent, because
+  its amounts are filed under it, and so are its dates once it carries posted
+  amounts: re-dating an expo would move money between expos without a trace.
+- An event moves forward only: planned, selling, running, closed. A closed expo
+  is not reopened — a late bill is raised against it as it stands. An expo that
+  already carries posted amounts cannot be cancelled, only closed, and a
+  cancelled expo stops collecting new amounts.
+- Tagging is enforced twice: the service refuses a tag that is not an active
+  event of the same company, and the database refuses it again through foreign
+  keys on journal lines, invoice lines, bill lines and payments plus a trigger
+  that rejects a cancelled event. An event is never deleted.
+- **Profit per expo** reads the ledger: income less direct costs for each expo,
+  with the margin, the variance against the budget that was set for it, and
+  office costs reported separately. Direct costs are the 5000 range; office
+  costs live in 6000 and are never tagged, which is what makes an expo's profit
+  mean something. Untagged office costs reach no expo at all.
+- Two screens: the expo register with its form, and the profit report.
+
+### Verified
+
+- Eight checks in `tests/events.test.ts` pass against the isolated test
+  database: an event created with its code uppercased and listed; an event
+  refused that ends before it starts and a code refused when changed; income and
+  direct costs becoming profit, margin and budget variance while an office cost
+  is reported apart; an untagged office cost reaching no expo; another company's
+  event refused as a tag; a cancelled event refused new amounts and an event
+  with amounts refused cancellation; dates frozen once amounts are posted and a
+  closed expo refused reopening; and the database refusing to delete, rename or
+  soft-delete an event.
+- Signed in against the local database: the expo register and the profit report
+  both render, an expo was created through the form itself and appeared in both.
+  A page-size bug was found that way and fixed.
+
+### Still to come in events
+
+- Booths and the floor plan, booth bookings that raise their own invoices,
+  exhibitors and sponsors, visitor registration and gate check-in. This part
+  delivers the expo, its tag and its profit.
+
 ## Part 5 — Intercompany, cash counts and reset to zero — 2026-11-25
 
 Built and verified locally in Claude Code rather than in Replit, on PostgreSQL 16

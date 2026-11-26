@@ -10,6 +10,7 @@ export const accountConfig:Record<AccountResource,{model:string;table:string;obj
   departments:{model:"department",table:"departments",object:"department",search:["code","name"]},
   journals:{model:"journal",table:"journals",object:"journal",search:["code","name"]},
   outlets:{model:"outlet",table:"outlets",object:"outlet",search:["code","name","address"]},
+  events:{model:"event",table:"events",object:"event",search:["code","name","city","venue"]},
   taxes:{model:"tax",table:"taxes",object:"tax",search:["code","name","authority","province"]},
   invoices:{model:"invoice",table:"invoices",object:"invoice",search:["number","narration"]},
   bills:{model:"bill",table:"bills",object:"bill",search:["number","narration"]},
@@ -46,7 +47,13 @@ export function dateOnly(value:string|Date) {
   return date;
 }
 export async function dimensionCheck(tx:Tx,companyId:string,line:{departmentId?:string|null;eventId?:string|null;outletId?:string|null}) {
-  if(line.eventId) throw new AppError(400,"Event tagging is not available yet; clear the event selection");
+  // An expo's income and direct costs must carry its tag, so the tag has to be
+  // a real event of this company that is still collecting amounts.
+  if(line.eventId) {
+    const event=await tx.event.findFirst({where:{id:line.eventId,companyId,deletedAt:null}});
+    if(!event)throw new AppError(400,"Select an event of this company");
+    if(event.status==="CANCELLED")throw new AppError(400,"A cancelled event cannot be tagged on new amounts");
+  }
   if(line.outletId&&!await tx.outlet.findFirst({where:{id:line.outletId,companyId,active:true,deletedAt:null}}))
     throw new AppError(400,"Select an active outlet in this company");
   if(line.departmentId&&!await tx.department.findFirst({where:{id:line.departmentId,companyId,active:true,deletedAt:null}}))

@@ -67,6 +67,7 @@ model Company {
   attachments      Attachment[]
   auditLogs        AuditLog[]
   cashCounts       CashCount[]
+  events           Event[]
   intercompanyInitiated IntercompanyTransfer[] @relation("IntercompanyInitiator")
   intercompanyFacing    IntercompanyTransfer[] @relation("IntercompanyCounterparty")
   @@map("companies")
@@ -656,6 +657,7 @@ model JournalLine {
   party Party? @relation(fields:[partyId,companyId],references:[id,companyId],onDelete:Restrict)
   department Department? @relation(fields:[departmentId,companyId],references:[id,companyId],onDelete:Restrict)
   outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
+  event Event? @relation(fields:[eventId,companyId],references:[id,companyId],onDelete:Restrict)
   @@unique([id,companyId])
   @@unique([companyId,entryId,lineNo])
   @@index([companyId,accountId])
@@ -748,6 +750,7 @@ model InvoiceLine {
   account Account @relation(fields:[accountId,companyId],references:[id,companyId],onDelete:Restrict)
   department Department? @relation(fields:[departmentId,companyId],references:[id,companyId],onDelete:Restrict)
   outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
+  event Event? @relation("InvoiceLineEvent",fields:[eventId,companyId],references:[id,companyId],onDelete:Restrict)
   @@unique([id,companyId])
   @@unique([companyId,invoiceId,lineNo])
   @@map("invoice_lines")
@@ -837,6 +840,7 @@ model BillLine {
   account Account @relation(fields:[accountId,companyId],references:[id,companyId],onDelete:Restrict)
   department Department? @relation(fields:[departmentId,companyId],references:[id,companyId],onDelete:Restrict)
   outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
+  event Event? @relation("BillLineEvent",fields:[eventId,companyId],references:[id,companyId],onDelete:Restrict)
   @@unique([id,companyId])
   @@unique([companyId,billId,lineNo])
   @@map("bill_lines")
@@ -874,6 +878,7 @@ model Payment {
   settlementAccount Account @relation(fields:[settlementAccountId,companyId],references:[id,companyId],onDelete:Restrict)
   department Department? @relation(fields:[departmentId,companyId],references:[id,companyId],onDelete:Restrict)
   outlet Outlet? @relation(fields:[outletId,companyId],references:[id,companyId],onDelete:Restrict)
+  event Event? @relation("PaymentEvent",fields:[eventId,companyId],references:[id,companyId],onDelete:Restrict)
   entry JournalEntry? @relation("PaymentEntry",fields:[entryId,companyId],references:[id,companyId],onDelete:Restrict)
   reversalEntry JournalEntry? @relation("PaymentReversal",fields:[reversalEntryId,companyId],references:[id,companyId],onDelete:Restrict)
   allocations PaymentAllocation[]
@@ -1110,4 +1115,37 @@ model IntercompanyTransfer {
   @@index([companyId,date,status])
   @@index([counterpartyCompanyId,date,status])
   @@map("intercompany_transfers")
+}
+
+/// An expo. Its income and its direct costs carry its tag, which is what makes
+/// profit per expo a report rather than a spreadsheet somebody keeps by hand.
+model Event {
+  id String @id @default(uuid()) @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  code String
+  name String
+  city String?
+  venue String?
+  edition Int?
+  startDate DateTime @map("start_date") @db.Date
+  endDate DateTime @map("end_date") @db.Date
+  status String @default("PLANNED")
+  budgetIncome Decimal @default(0) @map("budget_income") @db.Decimal(18,4)
+  budgetCost Decimal @default(0) @map("budget_cost") @db.Decimal(18,4)
+  notes String?
+  active Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy String? @map("created_by") @db.Uuid
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy String? @map("updated_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+  company Company @relation(fields:[companyId],references:[id],onDelete:Restrict)
+  journalLines JournalLine[]
+  invoiceLines InvoiceLine[] @relation("InvoiceLineEvent")
+  billLines BillLine[] @relation("BillLineEvent")
+  payments Payment[] @relation("PaymentEvent")
+  @@unique([id,companyId])
+  @@unique([companyId,code])
+  @@index([companyId,status,startDate])
+  @@map("events")
 }

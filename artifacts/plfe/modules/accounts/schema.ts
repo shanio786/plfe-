@@ -65,5 +65,16 @@ export const intercompanySchema=z.object({counterpartyCompanyId:uuid,
   date:day,amount,
   reason:z.string().trim().min(10,"Write a reason of at least ten characters").max(2000),
   settlementAccountId:uuid,counterpartyAccountId:uuid});
-export const accountResources=["chart","parties","departments","journals","outlets","taxes","invoices","bills","payments","entries","settings"] as const;
+/** An expo. Its code is permanent because its amounts are filed under it. */
+export const eventSchema=z.object({
+  code:z.string().trim().regex(/^[A-Za-z0-9-]{1,30}$/,"Use an event code of up to 30 letters, numbers or hyphens").transform(v=>v.toUpperCase()),
+  name:z.string().trim().min(1,"Name the event").max(200),
+  city:optional,venue:optional,
+  edition:z.coerce.number().int().min(1).max(999).nullish().transform(v=>v||null),
+  startDate:day,endDate:day,
+  status:z.enum(["PLANNED","OPEN","RUNNING","CLOSED","CANCELLED"]).default("PLANNED"),
+  budgetIncome:amount.default("0.0000"),budgetCost:amount.default("0.0000"),
+  notes:optional,active:z.boolean().default(true)
+});
+export const accountResources=["chart","parties","departments","journals","outlets","taxes","events","invoices","bills","payments","entries","settings"] as const;
 export type AccountResource=typeof accountResources[number];

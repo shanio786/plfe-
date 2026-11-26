@@ -13,6 +13,7 @@ import {cancelDocument,postDocument,previewDocument,saveDocument} from "./docume
 import {postVoucher,saveVoucher} from "./vouchers";
 import {accountingToday} from "./time";
 import {saveOutlet} from "./outlets";
+import {saveEvent} from "./events";
 import {saveTax} from "./tax-master";
 import {preparePaymentPost} from "./payment-controls";
 import {approvalRule,requestApproval} from "./approvals";
@@ -47,6 +48,7 @@ export async function saveAccountRecord(actor:Actor,companyCode:string,resource:
     }
     if(resource==="taxes")return saveTax(tx,actor,companyId,raw);
     if(resource==="outlets")return saveOutlet(tx,actor,companyId,raw);
+    if(resource==="events")return saveEvent(tx,actor,companyId,raw);
     if(["post","cancel"].includes(raw.operation)) {
       if(!raw.id)throw new AppError(400,"Save a draft first");
       let target=await record(tx,resource,companyId,raw.id);

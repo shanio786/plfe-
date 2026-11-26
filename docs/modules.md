@@ -207,6 +207,15 @@ and the manual accounting test.
 
 ### Intercompany, cash counts and reset
 
+`modules/accounts/events.ts` owns the expo and the profit that belongs to it.
+Nothing else may create or re-date an event. The event tag is validated in
+`dimensionCheck` for every posting path and again by the database, so no module
+can tag an amount with an event that is not an active event of its own company.
+Profit per expo is read from posted journal lines only, grouping income against
+direct costs in the 5000 range; office costs are deliberately excluded from the
+expo's profit and shown apart.
+
+
 `modules/accounts/intercompany.ts` owns every movement between two group
 companies. It writes both companies' journal entries inside one transaction and
 links them permanently to the movement, using the paired due-from/due-to accounts
