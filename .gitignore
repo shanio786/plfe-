@@ -79,3 +79,6 @@ service-account*.json
 *.key
 *.p12
 *.pfx
+
+# Local development server output
+dev-server.log
