@@ -198,6 +198,7 @@ export const L = {
     },
     gb: {
       agree: "Agree", disagree: "Do not agree", seenBy: "Seen by", settled: "Settled",
+      ownBooks: "Per its own books", otherBooks: "Per the other's books",
       none: "There is only one company", onlyOne: "Group balances appear once a second company exists.",
       unmatched: "Reached one company only", ownerOnly: "Group balances span every company and are the Owner's.",
       allAgree: "Every pair agrees", someDisagree: "Some pairs do not agree",

@@ -62,11 +62,21 @@ five-part fresh-start Accounts revision.
   from one; and the reset refused for opened books and for a non-disposable
   database.
 
-### Not done
+### Screens, and the first signed-in browser pass in this project
 
-- The signed-in financial browser pass is still outstanding. The new cash count,
-  intercompany and group balance screens are **not** built yet: this part delivers
-  the services, database rules, API routes and tests only.
+- Cash counts, intercompany and group balances each have a screen in the shell
+  the rest of Accounts uses. Cash counts lead with the drawers and name every
+  one never counted; the count form shows book balance, counted amount and the
+  difference together and asks for a reason only when there is one. Intercompany
+  leads with the three kinds of movement, each explaining what it does to both
+  sets of books. Group balances name whose books each figure comes from.
+- Verified signed in, against a local PostgreSQL database with the six companies
+  created through the normal service: all three screens render, the count form
+  shows a difference and reveals the reason field as the amount is typed, the
+  movement form lists the other company own accounts, and group balances show
+  fifteen pairs all agreeing. Checked at desktop and tablet width.
+
+### Not done
 - `npm run test:phase1` / `test:phase2` and `db:migrate` call `prisma` and
   `tsx` without a shell, which does not resolve on Windows. The underlying
   commands were run directly instead. Two foundation checks also fail on Windows

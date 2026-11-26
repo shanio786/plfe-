@@ -242,8 +242,8 @@ export function GroupBalancesSection({ embedded = false }: { embedded?: boolean 
           <thead><tr>
             <th className={`${TH} text-left`}>{L.f.company ?? "Company"}</th>
             <th className={`${TH} text-left`}>{I.other}</th>
-            <th className={`${TH} text-right`}>{G.seenBy} A</th>
-            <th className={`${TH} text-right`}>{G.seenBy} B</th>
+            <th className={`${TH} text-right`}>{G.ownBooks}</th>
+            <th className={`${TH} text-right`}>{G.otherBooks}</th>
             <th className={`${TH} text-left`}>{G.agree}</th>
             <th className={`${TH} text-left`}>{A.f.narration}</th>
           </tr></thead>
@@ -254,8 +254,8 @@ export function GroupBalancesSection({ embedded = false }: { embedded?: boolean 
                 <tr key={`${r.companyId}-${r.counterpartyCompanyId}`} className="border-b last:border-0" data-testid={`row-pair-${r.companyId}-${r.counterpartyCompanyId}`}>
                   <td className="px-3 py-1.5">{r.company}</td>
                   <td className="px-3 py-1.5">{r.counterparty}</td>
-                  <td className="px-3 py-1.5 text-right"><Money v={r.seenBy[codes[0]]} /></td>
-                  <td className="px-3 py-1.5 text-right"><Money v={r.seenBy[codes[1]]} /></td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-right"><span className="mr-1.5 font-mono text-[10px] text-muted-foreground">{codes[0]}</span><Money v={r.seenBy[codes[0]]} /></td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-right"><span className="mr-1.5 font-mono text-[10px] text-muted-foreground">{codes[1]}</span><Money v={r.seenBy[codes[1]]} /></td>
                   <td className="px-3 py-1.5"><Tag tone={r.agree ? "ok" : "bad"}>{r.agree ? G.agree : G.disagree}</Tag></td>
                   <td className="px-3 py-1.5 text-xs text-muted-foreground">
                     {r.statement}
